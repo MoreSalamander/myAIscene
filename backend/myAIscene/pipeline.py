@@ -7,6 +7,7 @@ the final assembly. The model proposes; this scaffold disposes.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from . import verifiers as V
@@ -28,6 +29,8 @@ class BeatResult:
     footage_fallback: bool = False
     music_dropped: bool = False
     clip: ClipOut | None = None
+    narr_path: str = ""           # set by run() — path to narration WAV
+    music_path: str | None = None # set by run() — path to music WAV, or None if dropped
 
 
 @dataclass
@@ -35,12 +38,14 @@ class Manifest:
     title: str
     beats: list[BeatResult] = field(default_factory=list)
     assembly: V.GateResult | None = None
+    out_path: str = ""
     ok: bool = False
 
     def gate_summary(self) -> dict[str, int]:
         passed = failed = 0
         for b in self.beats:
             for g in b.gates:
+                (passed if g.passed else failed)
                 if g.passed:
                     passed += 1
                 else:
@@ -64,7 +69,15 @@ def _run_blocking(emitter, stage, beat_id, attempt_fn, max_retries):
         emitter.gate_fail(stage, beat=beat_id, detail=gate.detail, **gate.metrics)
         if attempt < max_retries:
             emitter.retry(stage, beat=beat_id, attempt=attempt + 1)
-    raise PipelineError(f"{stage} failed for beat {beat_id} after {max_retries} retries: {last.detail}")
+    raise PipelineError(
+        f"{stage} failed for beat {beat_id} after {max_retries} retries: {last.detail}"
+    )
+
+
+def _expected_duration(spec: ProductionSpec) -> float:
+    """Total expected output duration including title card."""
+    title_s = (spec.titlecard.get("fade_s", 2.0) + 0.5) if spec.titlecard else 0.0
+    return spec.episode.length_s + title_s
 
 
 def run(
@@ -72,13 +85,13 @@ def run(
     renderer: Renderer,
     emitter: EventEmitter | None = None,
     max_retries: int = MAX_RETRIES,
+    out_path: str = "/tmp/myAIscene/episode.mp4",
 ) -> Manifest:
     em = emitter or EventEmitter()
     em.step_start("spec_load", title=spec.episode.title, beats=len(spec.beats))
     em.step_complete("spec_load")
 
     manifest = Manifest(title=spec.episode.title)
-    clips: list[ClipOut] = []
 
     for beat in spec.beats:
         br = BeatResult(beat_id=beat.id)
@@ -87,47 +100,60 @@ def run(
         em.step_start("narration_synth", beat=beat.id)
         narr, ngate, _ = _run_blocking(
             em, "narration_verify", beat.id,
-            lambda: (lambda o: (o, V.narration_verify(beat, o.transcript)))(renderer.narrate(beat, spec)),
+            lambda b=beat: (
+                lambda o: (o, V.narration_verify(b, o.transcript))
+            )(renderer.narrate(b, spec)),
             max_retries,
         )
         br.gates.append(ngate)
+        br.narr_path = narr.audio_path
         em.step_complete("narration_synth", beat=beat.id, audio=narr.audio_path)
 
         dgate = V.duration_verify(beat, narr.duration_s)
         br.gates.append(dgate)
-        (em.gate_pass if dgate.passed else em.gate_fail)("duration_verify", beat=beat.id, **dgate.metrics)
+        (em.gate_pass if dgate.passed else em.gate_fail)(
+            "duration_verify", beat=beat.id, **dgate.metrics
+        )
         if not dgate.passed:
-            raise PipelineError(f"duration_verify failed for beat {beat.id}: {dgate.detail}")
+            raise PipelineError(
+                f"duration_verify failed for beat {beat.id}: {dgate.detail}"
+            )
 
         # --- footage (blocking, retry → neutral fallback) ---
         em.step_start("footage_synth", beat=beat.id)
         try:
             still, fgate, _ = _run_blocking(
                 em, "footage_verify", beat.id,
-                lambda: (lambda s: (s, V.footage_verify(beat, s.clip_score)))(renderer.still(beat, spec)),
+                lambda b=beat: (
+                    lambda s: (s, V.footage_verify(b, s.clip_score))
+                )(renderer.still(b, spec)),
                 max_retries,
             )
         except PipelineError:
-            # defined fallback: a neutral clip rather than failing the episode
             br.footage_fallback = True
             em.fallback("footage_verify", beat=beat.id, to="neutral_clip")
-            still = renderer.still(beat, spec)  # reused as neutral source
-            br.gates.append(V.GateResult("footage_verify", passed=False, blocking=True,
-                                         detail="fell back to neutral clip"))
+            still = renderer.still(beat, spec)
+            br.gates.append(
+                V.GateResult("footage_verify", passed=False, blocking=True,
+                             detail="fell back to neutral clip")
+            )
         else:
             br.gates.append(fgate)
         clip = renderer.motion(beat, still, spec)
         br.clip = clip
-        clips.append(clip)
         em.step_complete("footage_synth", beat=beat.id, clip=clip.clip_path)
 
         # --- music (NON-blocking) ---
         em.step_start("music_synth", beat=beat.id)
         music = renderer.music(beat, spec)
-        mgate = V.music_cue_verify(beat, music.asset_path if music else None,
-                                   music.duration_s if music else None)
+        mgate = V.music_cue_verify(
+            beat,
+            music.asset_path if music else None,
+            music.duration_s if music else None,
+        )
         br.gates.append(mgate)
         if mgate.passed:
+            br.music_path = music.asset_path
             em.gate_pass("music_cue_verify", beat=beat.id, **mgate.metrics)
         else:
             br.music_dropped = True
@@ -141,13 +167,15 @@ def run(
     em.step_complete("grade", luts=[b.grade.get("lut") for b in spec.beats])
 
     em.step_start("assemble")
-    probe = renderer.assemble(clips, audio_path="/tmp/myAIscene/mix.wav", spec=spec)
+    probe = renderer.assemble(spec.beats, manifest.beats, spec, out_path)
+    expected_s = _expected_duration(spec)
     agate = V.assembly_verify(
-        exists=probe.exists, duration_s=probe.duration_s, expected_s=spec.episode.length_s,
+        exists=probe.exists, duration_s=probe.duration_s, expected_s=expected_s,
         has_audio=probe.has_audio, resolution=probe.resolution,
         expected_resolution=spec.episode.resolution,
     )
     manifest.assembly = agate
+    manifest.out_path = probe.path
     if agate.passed:
         em.gate_pass("assembly_verify", **agate.metrics)
     else:
@@ -160,7 +188,7 @@ def run(
     return manifest
 
 
-# --- Phase 2: narration-only run (first real artifact = a timed VO track) ---
+# ---- Phase-specific runners (report gates without raising) ----------------
 
 @dataclass
 class NarrationBeatResult:
@@ -200,11 +228,7 @@ def narrate_only(
     emitter: EventEmitter | None = None,
     limit: int | None = None,
 ) -> NarrationManifest:
-    """Run only narration_synth → narration_verify → duration_verify per
-    beat, writing real VO and reporting both gates. Unlike run(), this does
-    NOT raise on a content failure — its job is to produce the VO track and
-    surface which beats need the script (human-owned) or window tightened.
-    """
+    """Run only narration per beat — report gates, do not raise on content failure."""
     em = emitter or EventEmitter()
     beats = spec.beats[:limit] if limit else spec.beats
     em.step_start("spec_load", title=spec.episode.title, beats=len(beats))
@@ -218,12 +242,13 @@ def narrate_only(
                          audio=narr.audio_path, duration_s=round(narr.duration_s, 3))
 
         ng = V.narration_verify(beat, narr.transcript)
-        (em.gate_pass if ng.passed else em.gate_fail)("narration_verify", beat=beat.id,
-                                                       detail=ng.detail, **ng.metrics)
+        (em.gate_pass if ng.passed else em.gate_fail)(
+            "narration_verify", beat=beat.id, detail=ng.detail, **ng.metrics
+        )
         dg = V.duration_verify(beat, narr.duration_s)
-        (em.gate_pass if dg.passed else em.gate_fail)("duration_verify", beat=beat.id,
-                                                      detail=dg.detail, **dg.metrics)
-
+        (em.gate_pass if dg.passed else em.gate_fail)(
+            "duration_verify", beat=beat.id, detail=dg.detail, **dg.metrics
+        )
         manifest.beats.append(NarrationBeatResult(
             beat_id=beat.id, audio_path=narr.audio_path, duration_s=narr.duration_s,
             narration_gate=ng, duration_gate=dg, transcript=narr.transcript,
@@ -231,3 +256,115 @@ def narrate_only(
 
     em.done(**manifest.summary())
     return manifest
+
+
+@dataclass
+class MusicBeatResult:
+    beat_id: str
+    asset_path: str | None
+    duration_s: float | None
+    gate: V.GateResult
+
+    @property
+    def ok(self) -> bool:
+        return self.gate.passed
+
+
+@dataclass
+class MusicManifest:
+    title: str
+    beats: list[MusicBeatResult] = field(default_factory=list)
+
+    @property
+    def ok(self) -> bool:
+        return all(b.ok for b in self.beats)
+
+    def summary(self) -> dict[str, Any]:
+        return {
+            "beats": len(self.beats),
+            "music_ok": sum(b.ok for b in self.beats),
+            "music_dropped": sum(not b.ok for b in self.beats),
+        }
+
+
+def music_only(
+    spec: ProductionSpec,
+    renderer: Renderer,
+    emitter: EventEmitter | None = None,
+    limit: int | None = None,
+) -> MusicManifest:
+    """Generate music beds per beat; report non-blocking gate. Never raises."""
+    em = emitter or EventEmitter()
+    beats = spec.beats[:limit] if limit else spec.beats
+    em.step_start("spec_load", title=spec.episode.title, beats=len(beats))
+    em.step_complete("spec_load")
+
+    manifest = MusicManifest(title=spec.episode.title)
+    for beat in beats:
+        em.step_start("music_synth", beat=beat.id)
+        music = renderer.music(beat, spec)
+        gate = V.music_cue_verify(
+            beat,
+            music.asset_path if music else None,
+            music.duration_s if music else None,
+        )
+        if gate.passed:
+            em.gate_pass("music_cue_verify", beat=beat.id, **gate.metrics)
+        else:
+            em.skip("music_cue_verify", beat=beat.id, detail=gate.detail)
+        em.step_complete("music_synth", beat=beat.id)
+        manifest.beats.append(MusicBeatResult(
+            beat_id=beat.id,
+            asset_path=music.asset_path if music else None,
+            duration_s=music.duration_s if music else None,
+            gate=gate,
+        ))
+
+    em.done(**manifest.summary())
+    return manifest
+
+
+def assemble_from_assets(
+    spec: ProductionSpec,
+    asset_dir: Path,
+    renderer: Renderer,
+    emitter: EventEmitter | None = None,
+    out_path: str = "",
+) -> V.GateResult:
+    """Assemble episode from pre-generated per-beat assets on disk.
+
+    Expects in asset_dir:
+        {beat.id}.wav          — narration WAV (required)
+        {beat.id}_clip.mp4     — Ken Burns motion clip (required)
+        {beat.id}_music.wav    — music bed WAV (optional)
+
+    Returns the assembly_verify GateResult.
+    """
+    from .renderers import ClipOut
+    em = emitter or EventEmitter()
+    out = out_path or str(asset_dir / "episode.mp4")
+
+    em.step_start("assemble_from_assets")
+
+    beat_results: list[BeatResult] = []
+    for beat in spec.beats:
+        br = BeatResult(beat_id=beat.id)
+        br.narr_path = str(asset_dir / f"{beat.id}.wav")
+        clip_path = asset_dir / f"{beat.id}_clip.mp4"
+        if clip_path.exists():
+            br.clip = ClipOut(clip_path=str(clip_path), duration_s=beat.duration_s)
+        music_path = asset_dir / f"{beat.id}_music.wav"
+        br.music_path = str(music_path) if music_path.exists() else None
+        br.music_dropped = br.music_path is None
+        beat_results.append(br)
+
+    probe = renderer.assemble(spec.beats, beat_results, spec, out)
+    expected_s = _expected_duration(spec)
+    gate = V.assembly_verify(
+        exists=probe.exists, duration_s=probe.duration_s, expected_s=expected_s,
+        has_audio=probe.has_audio, resolution=probe.resolution,
+        expected_resolution=spec.episode.resolution,
+    )
+    (em.gate_pass if gate.passed else em.gate_fail)("assembly_verify", **gate.metrics)
+    em.done(path=probe.path, passed=int(gate.passed), failed=int(not gate.passed))
+    return gate

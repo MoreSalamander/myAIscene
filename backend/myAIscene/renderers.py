@@ -8,7 +8,7 @@ HuggingFace stack documented in ARCHITECTURE.md.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import Any, Protocol
 
 from .spec import Beat, ProductionSpec
 
@@ -54,7 +54,7 @@ class Renderer(Protocol):
     def still(self, beat: Beat, spec: ProductionSpec) -> StillOut: ...
     def motion(self, beat: Beat, still: StillOut, spec: ProductionSpec) -> ClipOut: ...
     def music(self, beat: Beat, spec: ProductionSpec) -> MusicOut | None: ...
-    def assemble(self, clips: list[ClipOut], audio_path: str, spec: ProductionSpec) -> ProbeOut: ...
+    def assemble(self, beats: list, beat_results: list, spec: ProductionSpec, out_path: str) -> ProbeOut: ...
 
 
 # ---- offline fake ------------------------------------------------------
@@ -81,11 +81,9 @@ class ScriptedRenderer:
 
     def narrate(self, beat: Beat, spec: ProductionSpec) -> NarrationOut:
         n = self._attempt(f"narrate:{beat.id}")
-        if beat.id in self.fail_narration_on and n <= self.heal_after_retries:
-            transcript = "totally different words that will not match"
-        else:
-            transcript = beat.narration
-        # fake a duration that comfortably fits the window
+        transcript = ("totally different words that will not match"
+                      if beat.id in self.fail_narration_on and n <= self.heal_after_retries
+                      else beat.narration)
         return NarrationOut(
             audio_path=f"/tmp/myAIscene/{beat.id}.wav",
             transcript=transcript,
@@ -106,9 +104,10 @@ class ScriptedRenderer:
         return MusicOut(asset_path=f"/tmp/myAIscene/{beat.id}_music.wav",
                         duration_s=beat.duration_s + 0.5)
 
-    def assemble(self, clips: list[ClipOut], audio_path: str, spec: ProductionSpec) -> ProbeOut:
-        total = sum(c.duration_s for c in clips)
+    def assemble(self, beats: list, beat_results: list, spec: ProductionSpec, out_path: str) -> ProbeOut:
+        total = sum(b.t1 - b.t0 for b in beats)
+        title_s = (spec.titlecard.get("fade_s", 2.0) + 0.5) if spec.titlecard else 0.0
         return ProbeOut(
-            path="/tmp/myAIscene/episode.mp4", exists=True, duration_s=total,
+            path=out_path, exists=True, duration_s=total + title_s,
             has_audio=True, resolution=spec.episode.resolution,
         )
