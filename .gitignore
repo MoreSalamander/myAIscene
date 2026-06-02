@@ -1,0 +1,14 @@
+backend/.venv/
+out/
+**/__pycache__/
+.pytest_cache/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.wav
+*.mp4
+*.png
+*.jpg
+*.safetensors
+*.bin
+*.pt

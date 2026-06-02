@@ -1,0 +1,17 @@
+[project]
+name = "myAIscene"
+version = "0.1.0"
+description = "Local-first, verification-driven video production engine (MoreSalamander StudioLabs)"
+requires-python = ">=3.11"
+# Phase 1 has ZERO runtime deps — the scaffold is provable on the stdlib alone.
+# Phase 2+ (the LocalRenderer over the HuggingFace stack) will add, behind extras:
+#   torch, transformers, diffusers, kokoro/piper-tts, audiocraft (musicgen),
+#   stable-audio-tools, faster-whisper, open_clip_torch  — plus system ffmpeg.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

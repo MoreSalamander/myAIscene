@@ -1,0 +1,109 @@
+{
+  "episode": {
+    "title": "The Not It Protocol – Nature's Least Fair Algorithm",
+    "genre": "mockumentary-comedy",
+    "tone": "calm David Attenborough-style narration with dry academic humor",
+    "length_s": 183,
+    "platform": "youtube",
+    "aspect": "16:9",
+    "resolution": [1920, 1080],
+    "font": "Playfair Display",
+    "grain": 0.07,
+    "voice": { "engine": "kokoro", "voice": "bm_george", "desc": "British male narrator, calm, deep, documentary" }
+  },
+  "beats": [
+    {
+      "id": "b01", "t0": 0, "t1": 15,
+      "narration": "In the vast and chaotic ecosystem of human cooperation, there exists a most remarkable survival mechanism. It is swift. It is ruthless. It is the 'Not It' protocol.",
+      "direction": "Soft orchestral intro. Gentle camera pan across a human habitat (living room, office).",
+      "footage_prompt": "wide cinematic shot of a cozy living room and open-plan office, warm daylight, nature documentary framing",
+      "music": { "keywords": ["gentle documentary intro", "planet earth orchestral", "calm nature piano"], "mood": "majestic" },
+      "grade": { "lut": "warm_documentary", "note": "warm daylight" }
+    },
+    {
+      "id": "b02", "t0": 15, "t1": 35,
+      "narration": "Triggered by the mere mention of an undesirable task, the 'Not It' sequence begins. Within milliseconds, equilibrium collapses into a frenzy of vocal exclusion.",
+      "direction": "Rising tension. Close-ups of faces reacting to the trash task.",
+      "footage_prompt": "close-up of human faces reacting with sudden alarm, documentary lighting, shallow depth of field",
+      "music": { "keywords": ["building tension", "comedy orchestra rise"], "mood": "tense" },
+      "grade": { "lut": "cool_neutral", "note": "slightly cool tone" }
+    },
+    {
+      "id": "b03", "t0": 35, "t1": 55,
+      "narration": "Each participant scrambles to utter the sacred words: 'Not it.' It is a contest of reflexes, not reason.",
+      "direction": "Slow-motion montage of people shouting Not it.",
+      "footage_prompt": "slow motion montage of people shouting and raising hands, energetic, documentary",
+      "music": { "keywords": ["fast comedy", "plucky strings", "funny orchestra"], "mood": "absurd" },
+      "grade": { "lut": "high_contrast", "note": "high contrast, vivid highlights" }
+    },
+    {
+      "id": "b04", "t0": 55, "t1": 70,
+      "narration": "In this game, fairness is a myth. The fastest and loudest survive. The slowest become 'It.'",
+      "direction": "Dramatic pause; zoom on shocked loser.",
+      "footage_prompt": "dramatic slow zoom on a single shocked person's face, desaturated, cinematic",
+      "music": { "keywords": ["dramatic orchestra", "tragic comedy"], "mood": "mock-heroic" },
+      "grade": { "lut": "desaturated", "note": "desaturated, dramatic" }
+    },
+    {
+      "id": "b05", "t0": 70, "t1": 90,
+      "narration": "Observe the defeated specimen, isolated, burdened, and universally pitied. Moments ago, they were one of the pack. Now, they alone must carry the terrible weight of taking out the bins.",
+      "direction": "Sad music, the 'It' person doing chores.",
+      "footage_prompt": "lone person reluctantly carrying a trash bag at dusk, melancholy, cool vignette, documentary",
+      "music": { "keywords": ["emotional piano", "slow documentary"], "mood": "melancholic" },
+      "grade": { "lut": "cool_vignette", "note": "cool vignette, melancholy" }
+    },
+    {
+      "id": "b06", "t0": 90, "t1": 115,
+      "narration": "Social scientists have long marveled at the elegance of this mechanism. No formal governance. No voting. No justice whatsoever. And yet, it works. Efficiently. Instantly. Mercilessly.",
+      "direction": "Mock graphs with Fairness = 0, Efficiency = 100%.",
+      "footage_prompt": "clean sterile infographic of mock scientific graphs and charts, white background, fairness versus efficiency",
+      "music": { "keywords": ["playful documentary", "science montage"], "mood": "academic" },
+      "grade": { "lut": "clean_sterile", "note": "clean, sterile" }
+    },
+    {
+      "id": "b07", "t0": 115, "t1": 135,
+      "narration": "Conflicts do arise, of course. When declarations overlap, primitive arbitration ensues: yelling, re-dos, or blaming the slowest-looking person.",
+      "direction": "Funny argument sequence, chaos.",
+      "footage_prompt": "group of people arguing animatedly and pointing fingers, warm tint, documentary chaos",
+      "music": { "keywords": ["comedy chase", "playful conflict"], "mood": "chaotic" },
+      "grade": { "lut": "warm_orange", "note": "warm orange tint" }
+    },
+    {
+      "id": "b08", "t0": 135, "t1": 150,
+      "narration": "In rare cases, a preemptive 'Not it' may be issued before a task even exists. These are swiftly nullified by the community, unless everyone's too tired to care.",
+      "direction": "Lazy, comedic timing.",
+      "footage_prompt": "person lazily lounging on a couch raising one finger, low energy, low contrast, documentary",
+      "music": { "keywords": ["lazy jazz", "comedy chill"], "mood": "lazy" },
+      "grade": { "lut": "low_contrast", "note": "low contrast" }
+    },
+    {
+      "id": "b09", "t0": 150, "t1": 170,
+      "narration": "Across generations and continents, this protocol endures, a testament to humanity's eternal preference for fast unfairness over slow fairness.",
+      "direction": "Global montage, uplifting music.",
+      "footage_prompt": "bright colorful global montage of diverse people in many countries, uplifting, documentary",
+      "music": { "keywords": ["epic documentary", "triumphant build"], "mood": "inspiring" },
+      "grade": { "lut": "bright_vivid", "note": "bright, colorful" }
+    },
+    {
+      "id": "b10", "t0": 170, "t1": 183,
+      "narration": "Truly, a wonder of social evolution. And while some dream of reforming it, perhaps introducing equity or randomized assignment, most agree such efforts would simply ruin it.",
+      "direction": "Fade to black. Whisper 'Not it.'",
+      "footage_prompt": "slow fade to black over an empty quiet room, sepia, reverent, documentary",
+      "music": { "keywords": ["peaceful outro", "elegant strings"], "mood": "reverent" },
+      "grade": { "lut": "sepia_fade", "note": "sepia fade" }
+    }
+  ],
+  "audio": { "vo_db": -6, "crossfade_s": 1.75, "ambient": true },
+  "titlecard": {
+    "text": "The Not It Protocol – Nature's Least Fair Algorithm",
+    "subtitle": "A Comedy Mockumentary",
+    "fade_s": 2.0
+  },
+  "credits": {
+    "narration": "AI Voice (Kokoro bm_george)",
+    "script": "MoreSalamander Productions",
+    "produced_with": "my-AI-scene (local HuggingFace stack)",
+    "year": 2026,
+    "imprint": "University of Nowhere Press"
+  }
+}
