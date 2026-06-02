@@ -31,6 +31,7 @@ class BeatResult:
     clip: ClipOut | None = None
     narr_path: str = ""           # set by run() — path to narration WAV
     music_path: str | None = None # set by run() — path to music WAV, or None if dropped
+    window_s: float | None = None # override beat.duration_s for assembly (trim to narration)
 
 
 @dataclass
@@ -324,12 +325,23 @@ def music_only(
     return manifest
 
 
+def _wav_duration(path: Path) -> float | None:
+    """Read duration of a WAV using stdlib wave — no ffprobe needed."""
+    import wave as _wave
+    try:
+        with _wave.open(str(path), "r") as wf:
+            return wf.getnframes() / wf.getframerate()
+    except Exception:
+        return None
+
+
 def assemble_from_assets(
     spec: ProductionSpec,
     asset_dir: Path,
     renderer: Renderer,
     emitter: EventEmitter | None = None,
     out_path: str = "",
+    narration_tail_s: float = 1.5,
 ) -> V.GateResult:
     """Assemble episode from pre-generated per-beat assets on disk.
 
@@ -337,6 +349,11 @@ def assemble_from_assets(
         {beat.id}.wav          — narration WAV (required)
         {beat.id}_clip.mp4     — Ken Burns motion clip (required)
         {beat.id}_music.wav    — music bed WAV (optional)
+
+    narration_tail_s: silence/visual breathing room appended after each
+        narration ends (default 1.5s). Beats are trimmed to
+        narr_dur + narration_tail_s rather than their full spec window,
+        eliminating long empty gaps when narration is shorter than the window.
 
     Returns the assembly_verify GateResult.
     """
@@ -349,7 +366,16 @@ def assemble_from_assets(
     beat_results: list[BeatResult] = []
     for beat in spec.beats:
         br = BeatResult(beat_id=beat.id)
-        br.narr_path = str(asset_dir / f"{beat.id}.wav")
+        narr_path = asset_dir / f"{beat.id}.wav"
+        br.narr_path = str(narr_path)
+
+        # Trim each beat to actual narration length + breathing room.
+        # Prevents long silent gaps when narration is shorter than the spec window.
+        narr_dur = _wav_duration(narr_path)
+        if narr_dur is not None:
+            br.window_s = min(narr_dur + narration_tail_s, beat.duration_s)
+        # If WAV missing or unreadable, window_s stays None → assembler uses beat.duration_s
+
         clip_path = asset_dir / f"{beat.id}_clip.mp4"
         if clip_path.exists():
             br.clip = ClipOut(clip_path=str(clip_path), duration_s=beat.duration_s)
@@ -359,7 +385,15 @@ def assemble_from_assets(
         beat_results.append(br)
 
     probe = renderer.assemble(spec.beats, beat_results, spec, out, emitter=em)
-    expected_s = _expected_duration(spec)
+
+    # Expected duration is the sum of actual windows used (not the spec declaration),
+    # since we may have trimmed beats to narration length.
+    title_s = (spec.titlecard.get("fade_s", 2.0) + 0.5) if spec.titlecard else 0.0
+    expected_s = sum(
+        (br.window_s if br.window_s is not None else beat.duration_s)
+        for br, beat in zip(beat_results, spec.beats)
+    ) + title_s
+
     gate = V.assembly_verify(
         exists=probe.exists, duration_s=probe.duration_s, expected_s=expected_s,
         has_audio=probe.has_audio, resolution=probe.resolution,

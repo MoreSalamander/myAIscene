@@ -387,6 +387,8 @@ class LocalRenderer:
             _emit("step_start", "grade_mix", beat=beat.id, index=i+1, total=total)
             lut_file = str(lut_for(beat.grade.get("lut", ""), lut_paths))
             clip_path = br.clip.clip_path if br.clip else None
+            # Use trimmed window if set (narr_dur + tail), else full spec window
+            window_s = br.window_s if (hasattr(br, "window_s") and br.window_s is not None) else beat.duration_s
             av_path = str(self.out_dir / f"{beat.id}_av.mp4")
 
             if clip_path and os.path.exists(clip_path):
@@ -395,7 +397,7 @@ class LocalRenderer:
                     narr_path=br.narr_path,
                     music_path=br.music_path if not br.music_dropped else None,
                     lut_file=lut_file,
-                    window_s=beat.duration_s,
+                    window_s=window_s,
                     music_vol=music_vol,
                     out_path=av_path,
                 )
@@ -404,7 +406,7 @@ class LocalRenderer:
                     "ffmpeg", "-f", "lavfi",
                     "-i", f"color=c=black:s={W}x{H}:r={self.fps}",
                     "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
-                    "-t", str(beat.duration_s),
+                    "-t", str(window_s),
                     "-c:v", "libx264", "-preset", "ultrafast",
                     "-c:a", "aac", "-y", av_path,
                 ], check=True, capture_output=True)
