@@ -363,8 +363,14 @@ class LocalRenderer:
         beat_results: list,
         spec: ProductionSpec,
         out_path: str = "/tmp/myAIscene/episode.mp4",
+        *,
+        emitter=None,
     ) -> ProbeOut:
         from .luts import ensure_luts, lut_for
+
+        def _emit(event, stage, **kw):
+            if emitter:
+                emitter.emit(event, stage, **kw)
 
         out = Path(out_path)
         out.parent.mkdir(parents=True, exist_ok=True)
@@ -376,7 +382,9 @@ class LocalRenderer:
 
         # 2. Per-beat: grade video + mix VO/music → {id}_av.mp4
         av_paths: list[str] = []
-        for beat, br in zip(beats, beat_results):
+        total = len(beats)
+        for i, (beat, br) in enumerate(zip(beats, beat_results)):
+            _emit("step_start", "grade_mix", beat=beat.id, index=i+1, total=total)
             lut_file = str(lut_for(beat.grade.get("lut", ""), lut_paths))
             clip_path = br.clip.clip_path if br.clip else None
             av_path = str(self.out_dir / f"{beat.id}_av.mp4")
@@ -392,7 +400,6 @@ class LocalRenderer:
                     out_path=av_path,
                 )
             else:
-                # fallback black clip + silence
                 subprocess.run([
                     "ffmpeg", "-f", "lavfi",
                     "-i", f"color=c=black:s={W}x{H}:r={self.fps}",
@@ -402,9 +409,10 @@ class LocalRenderer:
                     "-c:a", "aac", "-y", av_path,
                 ], check=True, capture_output=True)
             av_paths.append(av_path)
+            _emit("step_complete", "grade_mix", beat=beat.id, index=i+1, total=total)
 
-        # 3. Concatenate beats (concat demuxer — use absolute paths to avoid
-        #    double-prefix when the concat.txt sits in the same dir as the clips)
+        # 3. Concatenate beats
+        _emit("step_start", "concat", clips=total)
         main_path = str(self.out_dir / "episode_main.mp4")
         concat_list = self.out_dir / "concat.txt"
         abs_paths = [os.path.abspath(p) for p in av_paths]
@@ -413,16 +421,20 @@ class LocalRenderer:
             "ffmpeg", "-f", "concat", "-safe", "0", "-i", str(concat_list),
             "-c", "copy", "-y", main_path,
         ], check=True, capture_output=True)
+        _emit("step_complete", "concat")
 
         # 4. Title card
         tc = spec.titlecard
         if tc:
+            _emit("step_start", "titlecard")
             titled_path = str(self.out_dir / "episode_titled.mp4")
             self._prepend_title(main_path, tc, spec.episode, W, H, titled_path)
+            _emit("step_complete", "titlecard")
         else:
             titled_path = main_path
 
         # 5. Film grain
+        _emit("step_start", "grain")
         grain = max(1, int(spec.episode.grain * 100))
         subprocess.run([
             "ffmpeg", "-i", titled_path,
@@ -430,6 +442,7 @@ class LocalRenderer:
             "-c:a", "copy", "-c:v", "libx264", "-preset", "medium",
             "-y", str(out),
         ], check=True, capture_output=True)
+        _emit("step_complete", "grain", path=str(out))
 
         return _ffprobe_facts(str(out))
 

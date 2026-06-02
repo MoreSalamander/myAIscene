@@ -358,7 +358,7 @@ def assemble_from_assets(
         br.music_dropped = br.music_path is None
         beat_results.append(br)
 
-    probe = renderer.assemble(spec.beats, beat_results, spec, out)
+    probe = renderer.assemble(spec.beats, beat_results, spec, out, emitter=em)
     expected_s = _expected_duration(spec)
     gate = V.assembly_verify(
         exists=probe.exists, duration_s=probe.duration_s, expected_s=expected_s,

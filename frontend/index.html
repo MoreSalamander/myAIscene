@@ -207,6 +207,7 @@
             <th title="duration_verify">Dur</th>
             <th title="footage_verify">Still</th>
             <th title="music_cue_verify (non-blocking)">Music</th>
+            <th title="grade_mix per beat">Asm</th>
           </tr>
         </thead>
         <tbody id="beatRows"></tbody>
@@ -298,7 +299,8 @@ function buildGrid(beats) {
       `<td><span class="node pending" id="n-${b.id}-narr" title="${b.narration.slice(0,60)}…"></span></td>` +
       `<td><span class="node pending" id="n-${b.id}-dur"></span></td>` +
       `<td><span class="node pending" id="n-${b.id}-still" title="${b.footage_prompt.slice(0,60)}…"></span></td>` +
-      `<td><span class="node pending" id="n-${b.id}-music"></span></td>`;
+      `<td><span class="node pending" id="n-${b.id}-music"></span></td>` +
+      `<td><span class="node pending" id="n-${b.id}-asm"></span></td>`;
     tbody.appendChild(row);
   }
 }
@@ -319,22 +321,25 @@ function handleEvent(e) {
 
   switch (e.event) {
     case "step_start":
-      if (e.stage === "spec_load")       { setPipeNode("spec",  "running"); }
-      if (e.stage === "narration_synth") { setPipeNode("narr",  "running"); if (b) setNode(b, "narr", "running"); }
-      if (e.stage === "footage_synth")   { setPipeNode("still", "running"); if (b) setNode(b, "still", "running"); }
-      if (e.stage === "music_synth")     { setPipeNode("music", "running"); if (b) setNode(b, "music", "running"); }
+      if (e.stage === "spec_load")         { setPipeNode("spec",  "running"); }
+      if (e.stage === "narration_synth")   { setPipeNode("narr",  "running"); if (b) setNode(b, "narr", "running"); }
+      if (e.stage === "footage_synth")     { setPipeNode("still", "running"); if (b) setNode(b, "still", "running"); }
+      if (e.stage === "music_synth")       { setPipeNode("music", "running"); if (b) setNode(b, "music", "running"); }
       if (e.stage === "grade" || e.stage === "assemble" || e.stage === "assemble_from_assets")
-                                         { setPipeNode("asm", "running"); }
-      logEv(`<span class="stg">${e.stage}</span>${b ? ` <span class="msg">${b}</span>` : ""}`, "b-run");
+                                           { setPipeNode("asm", "running"); }
+      if (e.stage === "grade_mix" && b)    { setPipeNode("asm", "running"); setNode(b, "asm", "running"); }
+      logEv(`<span class="stg">${e.stage}</span>${b ? ` <span class="msg">${b}</span>` : ""}${e.index ? ` <span class="msg">${e.index}/${e.total}</span>` : ""}`, "b-run");
       break;
 
     case "step_complete":
-      if (e.stage === "spec_load")     setPipeNode("spec", "done");
+      if (e.stage === "spec_load")       setPipeNode("spec", "done");
       if (e.stage === "narration_synth" && !b) setPipeNode("narr", "done");
       if (e.stage === "footage_synth"  && !b) setPipeNode("still", "done");
       if (e.stage === "music_synth"    && !b) setPipeNode("music", "done");
-      if (e.stage === "assemble")      setPipeNode("asm", "done");
-      logEv(`<span class="stg">${e.stage}</span>${b ? ` <span class="msg">${b}</span>` : ""}`, "b-done");
+      if (e.stage === "assemble")        setPipeNode("asm", "done");
+      if (e.stage === "grain")           setPipeNode("asm", "done");
+      if (e.stage === "grade_mix" && b)  setNode(b, "asm", "pass");
+      logEv(`<span class="stg">${e.stage}</span>${b ? ` <span class="msg">${b}</span>` : ""}${e.index ? ` <span class="msg">${e.index}/${e.total}</span>` : ""}`, "b-done");
       break;
 
     case "gate_pass":
