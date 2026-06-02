@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>my-AI-scene</title>
+<style>
+  :root {
+    --bg: #0e0f13; --panel: #171922; --panel2: #1f2230; --ink: #e7e9ee;
+    --muted: #8b90a0; --line: #2a2e3e; --accent: #e08a3c; --accent2: #6db3f2;
+    --ok: #5ec27e; --bad: #e06c6c; --warn: #e0c14a;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 13px; }
+
+  header { padding: 13px 20px; border-bottom: 1px solid var(--line);
+           display: flex; align-items: baseline; gap: 12px; }
+  header h1 { font-size: 17px; margin: 0; letter-spacing: .3px; }
+  header h1 b { color: var(--accent); font-weight: 800; }
+  header .tag { color: var(--muted); font-size: 11px; }
+
+  .wrap { display: grid; grid-template-columns: 300px 1fr 340px;
+          height: calc(100vh - 50px); }
+  .col { overflow-y: auto; padding: 14px 16px; }
+  .left  { border-right: 1px solid var(--line); }
+  .right { border-left: 1px solid var(--line); background: #101218; }
+
+  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .12em;
+       color: var(--muted); margin: 0 0 10px; }
+  h2.sep { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+  label { display: block; font-size: 11px; color: var(--muted); margin: 10px 0 4px; }
+  select, input[type=number], input[type=text] {
+    width: 100%; background: var(--panel2); border: 1px solid var(--line);
+    color: var(--ink); border-radius: 6px; padding: 7px 9px; font-size: 13px;
+    font-family: var(--sans);
+  }
+  select:focus, input:focus { outline: none; border-color: var(--accent2); }
+
+  .modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 6px; }
+  .mode-btn {
+    padding: 8px 0; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--panel2); color: var(--muted); font-size: 12px;
+    cursor: pointer; text-align: center; transition: .15s;
+  }
+  .mode-btn:hover { border-color: var(--accent); color: var(--ink); }
+  .mode-btn.active { background: rgba(224,138,60,.18); border-color: var(--accent);
+                     color: var(--accent); font-weight: 700; }
+
+  button#go {
+    width: 100%; margin-top: 14px; padding: 10px; border: 0; border-radius: 7px;
+    background: var(--accent); color: #1a1206; font-weight: 700; font-size: 13px;
+    cursor: pointer; transition: .15s;
+  }
+  button#go:disabled { opacity: .45; cursor: default; }
+  button#go:not(:disabled):hover { filter: brightness(1.1); }
+
+  .hint { color: var(--muted); font-size: 11px; margin-top: 7px; line-height: 1.5; }
+  .spec-meta { background: var(--panel2); border: 1px solid var(--line);
+               border-radius: 6px; padding: 9px 10px; margin-top: 8px; display: none; }
+  .spec-meta .st { font-weight: 600; font-size: 13px; }
+  .spec-meta .sm { color: var(--muted); font-size: 11px; margin-top: 3px; }
+
+  /* ---- pipeline strip ---------------------------------------------------- */
+  .pipe-strip { display: flex; gap: 6px; margin-bottom: 14px; }
+  .pnode {
+    flex: 1; padding: 6px 4px; border-radius: 5px; border: 1px solid var(--line);
+    background: var(--panel); text-align: center; font-size: 10px;
+    text-transform: uppercase; letter-spacing: .07em; color: var(--muted);
+    transition: .2s;
+  }
+  .pnode.running { background: rgba(109,179,242,.15); border-color: var(--accent2);
+                   color: var(--accent2); animation: pulse 1.2s infinite; }
+  .pnode.done    { background: rgba(94,194,126,.15); border-color: var(--ok); color: var(--ok); }
+  .pnode.failed  { background: rgba(224,108,108,.15); border-color: var(--bad); color: var(--bad); }
+
+  /* ---- beat grid ---------------------------------------------------------- */
+  .beat-grid-wrap { overflow-x: auto; margin-bottom: 14px; }
+  .beat-grid { border-collapse: collapse; width: 100%; }
+  .beat-grid th {
+    color: var(--muted); font-size: 10px; text-transform: uppercase;
+    letter-spacing: .08em; padding: 4px 8px; text-align: center;
+    border-bottom: 1px solid var(--line); white-space: nowrap;
+  }
+  .beat-grid th:first-child { text-align: left; }
+  .beat-grid td {
+    padding: 4px 8px; border-bottom: 1px solid #1e2133; text-align: center;
+  }
+  .beat-grid td:first-child { text-align: left; }
+  .bid { color: var(--accent2); font-family: var(--mono); font-size: 11px; }
+  .btime { color: var(--muted); font-size: 10px; margin-left: 4px; }
+
+  .node {
+    display: inline-block; width: 15px; height: 15px; border-radius: 3px;
+    border: 1px solid var(--line); vertical-align: middle; transition: .2s;
+  }
+  .node.pending  { background: var(--panel2); }
+  .node.running  { background: rgba(109,179,242,.35); border-color: var(--accent2);
+                   animation: pulse 1.2s infinite; }
+  .node.pass     { background: rgba(94,194,126,.3); border-color: var(--ok); }
+  .node.fail     { background: rgba(224,108,108,.3); border-color: var(--bad); }
+  .node.skip     { background: rgba(224,193,74,.2); border-color: var(--warn); }
+  .node.fallback { background: rgba(224,193,74,.25); border-color: var(--warn); }
+
+  @keyframes pulse { 0%,100% { opacity:.5; } 50% { opacity:1; } }
+
+  /* ---- event log ---------------------------------------------------------- */
+  #log { font-family: var(--mono); font-size: 12px; }
+  .ev { padding: 5px 9px; border-radius: 5px; margin-bottom: 4px;
+        background: var(--panel); border: 1px solid var(--line);
+        display: flex; gap: 8px; align-items: baseline; }
+  .ev .stg { color: var(--accent2); }
+  .ev .msg { color: var(--muted); font-size: 11px; }
+  .badge { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 20px;
+           text-transform: uppercase; letter-spacing: .04em; flex-shrink: 0; }
+  .b-pass { background: rgba(94,194,126,.15);  color: var(--ok);      }
+  .b-fail { background: rgba(224,108,108,.15); color: var(--bad);     }
+  .b-warn { background: rgba(224,193,74,.15);  color: var(--warn);    }
+  .b-run  { background: rgba(109,179,242,.15); color: var(--accent2); }
+  .b-done { background: rgba(224,138,60,.18);  color: var(--accent);  }
+  .b-skip { background: rgba(224,193,74,.12);  color: var(--warn);    }
+
+  /* ---- right panel ------------------------------------------------------- */
+  .summary { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .stat { background: var(--panel2); border: 1px solid var(--line); border-radius: 7px;
+          padding: 10px 12px; text-align: center; }
+  .stat .n { font-size: 26px; font-weight: 700; line-height: 1; }
+  .stat .l { color: var(--muted); font-size: 10px; text-transform: uppercase;
+             letter-spacing: .07em; margin-top: 3px; }
+  .stat.ok .n { color: var(--ok); }
+  .stat.bad .n { color: var(--bad); }
+  .stat.warn .n { color: var(--warn); }
+
+  video { width: 100%; border-radius: 7px; border: 1px solid var(--line); display: none; }
+  audio { width: 100%; margin-top: 4px; }
+  .media-item { background: var(--panel2); border: 1px solid var(--line);
+                border-radius: 6px; padding: 8px 10px; margin-bottom: 6px; }
+  .media-item .mt { font-size: 11px; color: var(--accent2); font-family: var(--mono);
+                    margin-bottom: 4px; }
+  .empty { color: var(--muted); font-size: 12px; font-style: italic; }
+  #status { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+  #status.ok  { color: var(--ok); }
+  #status.bad { color: var(--bad); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>my-<b>AI</b>-scene</h1>
+  <span class="tag">A MoreSalamander StudioLabs production · local-first video production engine</span>
+</header>
+
+<div class="wrap">
+
+  <!-- ===== LEFT: spec + mode ============================================== -->
+  <div class="col left">
+    <h2>Spec</h2>
+    <label>Episode spec</label>
+    <select id="specSel"><option value="">Loading…</option></select>
+    <div class="spec-meta" id="specMeta">
+      <div class="st" id="specTitle"></div>
+      <div class="sm" id="specInfo"></div>
+    </div>
+
+    <h2 class="sep">Mode</h2>
+    <div class="modes">
+      <div class="mode-btn active" data-mode="narrate">Narrate</div>
+      <div class="mode-btn" data-mode="music">Music</div>
+      <div class="mode-btn" data-mode="assemble">Assemble</div>
+    </div>
+    <div class="hint" id="modeHint">
+      Render narration (Kokoro TTS) + verify with Whisper.
+    </div>
+
+    <label style="margin-top:14px">Limit to first N beats (empty = all)</label>
+    <input id="limit" type="number" min="1" placeholder="all 10" />
+
+    <button id="go">Run</button>
+
+    <p class="hint">
+      Each beat streams <code>gate_pass</code> / <code>gate_fail</code> events in real time.
+      Narrate → Music → Assemble in sequence to build <code>episode.mp4</code>.
+    </p>
+  </div>
+
+  <!-- ===== CENTER: pipeline + beat grid + log ============================= -->
+  <div class="col mid">
+    <h2>Pipeline</h2>
+
+    <!-- stage nodes strip -->
+    <div class="pipe-strip">
+      <div class="pnode" id="pn-spec">spec</div>
+      <div class="pnode" id="pn-narr">narration</div>
+      <div class="pnode" id="pn-still">visuals</div>
+      <div class="pnode" id="pn-music">music</div>
+      <div class="pnode" id="pn-asm">assembly</div>
+    </div>
+
+    <!-- beat × stage grid -->
+    <div class="beat-grid-wrap">
+      <table class="beat-grid" id="beatGrid">
+        <thead>
+          <tr>
+            <th>Beat</th>
+            <th title="narration_verify">Narr</th>
+            <th title="duration_verify">Dur</th>
+            <th title="footage_verify">Still</th>
+            <th title="music_cue_verify (non-blocking)">Music</th>
+          </tr>
+        </thead>
+        <tbody id="beatRows"></tbody>
+      </table>
+    </div>
+
+    <h2>Event stream</h2>
+    <div id="status">Idle — select a spec and hit Run.</div>
+    <div id="log"></div>
+  </div>
+
+  <!-- ===== RIGHT: output + stats ========================================== -->
+  <div class="col right">
+    <h2>Gate summary</h2>
+    <div class="summary">
+      <div class="stat ok">  <div class="n" id="sPass">—</div><div class="l">Passed</div></div>
+      <div class="stat bad"> <div class="n" id="sFail">—</div><div class="l">Failed</div></div>
+      <div class="stat warn"><div class="n" id="sSkip">—</div><div class="l">Skipped</div></div>
+      <div class="stat">     <div class="n" id="sBeats">—</div><div class="l">Beats</div></div>
+    </div>
+
+    <h2>Output</h2>
+    <video id="player" controls></video>
+    <div id="mediaList"><div class="empty">Run a pipeline to see output here.</div></div>
+  </div>
+
+</div><!-- .wrap -->
+
+<script>
+const $ = id => document.getElementById(id);
+let currentSpec = null;
+let currentMode = "narrate";
+let passed = 0, failed = 0, skipped = 0, beatsDone = 0;
+
+// ---- mode buttons -------------------------------------------------------
+const MODE_HINTS = {
+  narrate:  "Render narration (Kokoro TTS) + verify with Whisper.",
+  music:    "Generate per-beat music beds with MusicGen-small.",
+  assemble: "Grade + mix + concat + title card → episode.mp4. Needs narration WAVs + clips in out/{spec}/.",
+};
+
+function setMode(mode) {
+  document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("active"));
+  const btn = document.querySelector(`.mode-btn[data-mode="${mode}"]`);
+  if (btn) btn.classList.add("active");
+  currentMode = mode;
+  $("modeHint").textContent = MODE_HINTS[mode] || "";
+}
+
+document.querySelectorAll(".mode-btn").forEach(btn => {
+  btn.addEventListener("click", () => setMode(btn.dataset.mode));
+});
+
+// ---- spec list ----------------------------------------------------------
+async function loadSpecs() {
+  const res = await fetch("/api/specs");
+  const specs = await res.json();
+  const sel = $("specSel");
+  sel.innerHTML = specs.length
+    ? specs.map(s => `<option value="${s.name}">${s.title}</option>`).join("")
+    : "<option value=''>No specs found</option>";
+  if (specs.length) onSpecChange();
+}
+
+$("specSel").addEventListener("change", onSpecChange);
+
+async function onSpecChange() {
+  const name = $("specSel").value;
+  if (!name) return;
+  const res = await fetch(`/api/specs/${name}`);
+  currentSpec = await res.json();
+  $("specTitle").textContent = currentSpec.episode.title;
+  $("specInfo").textContent =
+    `${currentSpec.beats.length} beats · ${currentSpec.episode.length_s}s · ${currentSpec.episode.genre}`;
+  $("specMeta").style.display = "block";
+  buildGrid(currentSpec.beats);
+}
+
+// ---- beat grid ----------------------------------------------------------
+function buildGrid(beats) {
+  const tbody = $("beatRows");
+  tbody.innerHTML = "";
+  for (const b of beats) {
+    const dur = `${b.t0}–${b.t1}s`;
+    const row = document.createElement("tr");
+    row.id = `row-${b.id}`;
+    row.innerHTML =
+      `<td><span class="bid">${b.id}</span><span class="btime">${dur}</span></td>` +
+      `<td><span class="node pending" id="n-${b.id}-narr" title="${b.narration.slice(0,60)}…"></span></td>` +
+      `<td><span class="node pending" id="n-${b.id}-dur"></span></td>` +
+      `<td><span class="node pending" id="n-${b.id}-still" title="${b.footage_prompt.slice(0,60)}…"></span></td>` +
+      `<td><span class="node pending" id="n-${b.id}-music"></span></td>`;
+    tbody.appendChild(row);
+  }
+}
+
+function setNode(beatId, col, state) {
+  const el = $(`n-${beatId}-${col}`);
+  if (el) el.className = `node ${state}`;
+}
+
+function setPipeNode(id, state) {
+  const el = $(`pn-${id}`);
+  if (el) el.className = `pnode ${state}`;
+}
+
+// ---- event → grid -------------------------------------------------------
+function handleEvent(e) {
+  const b = e.beat;
+
+  switch (e.event) {
+    case "step_start":
+      if (e.stage === "spec_load")       { setPipeNode("spec",  "running"); }
+      if (e.stage === "narration_synth") { setPipeNode("narr",  "running"); if (b) setNode(b, "narr", "running"); }
+      if (e.stage === "footage_synth")   { setPipeNode("still", "running"); if (b) setNode(b, "still", "running"); }
+      if (e.stage === "music_synth")     { setPipeNode("music", "running"); if (b) setNode(b, "music", "running"); }
+      if (e.stage === "grade" || e.stage === "assemble" || e.stage === "assemble_from_assets")
+                                         { setPipeNode("asm", "running"); }
+      logEv(`<span class="stg">${e.stage}</span>${b ? ` <span class="msg">${b}</span>` : ""}`, "b-run");
+      break;
+
+    case "step_complete":
+      if (e.stage === "spec_load")     setPipeNode("spec", "done");
+      if (e.stage === "narration_synth" && !b) setPipeNode("narr", "done");
+      if (e.stage === "footage_synth"  && !b) setPipeNode("still", "done");
+      if (e.stage === "music_synth"    && !b) setPipeNode("music", "done");
+      if (e.stage === "assemble")      setPipeNode("asm", "done");
+      logEv(`<span class="stg">${e.stage}</span>${b ? ` <span class="msg">${b}</span>` : ""}`, "b-done");
+      break;
+
+    case "gate_pass":
+      passed++;
+      updateStats();
+      if (e.stage === "narration_verify" && b) setNode(b, "narr",  "pass");
+      if (e.stage === "duration_verify"  && b) setNode(b, "dur",   "pass");
+      if (e.stage === "footage_verify"   && b) setNode(b, "still", "pass");
+      if (e.stage === "music_cue_verify" && b) setNode(b, "music", "pass");
+      if (e.stage === "assembly_verify")       setPipeNode("asm", "done");
+      logEv(`${badge("b-pass","pass")} <span class="stg">${e.stage}</span>${b ? ` <span class="msg">${b}</span>` : ""} <span class="msg">${e.detail || ""}</span>`);
+      break;
+
+    case "gate_fail":
+      failed++;
+      updateStats();
+      if (e.stage === "narration_verify" && b) setNode(b, "narr",  "fail");
+      if (e.stage === "duration_verify"  && b) setNode(b, "dur",   "fail");
+      if (e.stage === "footage_verify"   && b) setNode(b, "still", "fail");
+      if (e.stage === "music_cue_verify" && b) setNode(b, "music", "fail");
+      if (e.stage === "assembly_verify")       setPipeNode("asm", "failed");
+      logEv(`${badge("b-fail","fail")} <span class="stg">${e.stage}</span>${b ? ` <span class="msg">${b}</span>` : ""} <span class="msg">${e.detail || ""}</span>`);
+      break;
+
+    case "skip":
+      skipped++;
+      updateStats();
+      if (e.stage === "music_cue_verify" && b) setNode(b, "music", "skip");
+      logEv(`${badge("b-skip","skip")} <span class="stg">${e.stage}</span>${b ? ` <span class="msg">${b}</span>` : ""} <span class="msg">${e.detail || ""}</span>`);
+      break;
+
+    case "fallback":
+      if (e.stage === "footage_verify" && b) setNode(b, "still", "fallback");
+      logEv(`${badge("b-warn","fallback")} <span class="stg">${e.stage}</span>${b ? ` <span class="msg">${b}</span>` : ""}`);
+      break;
+
+    case "retry":
+      logEv(`${badge("b-warn","retry " + (e.attempt || ""))} <span class="stg">${e.stage}</span>${b ? ` <span class="msg">${b}</span>` : ""}`);
+      break;
+
+    case "done":
+      $("status").textContent =
+        `Done — passed:${e.passed ?? "?"} skipped:${e.skipped ?? "?"} failed:${e.failed ?? "?"}`;
+      $("status").className = failed ? "bad" : "ok";
+      logEv(`${badge("b-done","done")} <span class="msg">passed:${e.passed ?? "?"} failed:${e.failed ?? "?"}</span>`);
+      onRunComplete();
+      break;
+
+    case "error":
+      $("status").textContent = `Error: ${e.message || e.stage}`;
+      $("status").className = "bad";
+      logEv(`${badge("b-fail","error")} <span class="stg">${e.stage}</span> <span class="msg">${e.message || ""}</span>`);
+      break;
+  }
+}
+
+// ---- run ----------------------------------------------------------------
+async function startRun() {
+  const name = $("specSel").value;
+  if (!name) return;
+
+  $("go").disabled = true;
+  $("log").innerHTML = "";
+  $("player").style.display = "none";
+  $("mediaList").innerHTML = '<div class="empty">Running…</div>';
+  $("status").textContent = "Connecting…";
+  $("status").className = "";
+  passed = 0; failed = 0; skipped = 0; beatsDone = 0;
+  updateStats();
+
+  // reset all nodes
+  if (currentSpec) buildGrid(currentSpec.beats);
+  ["spec","narr","still","music","asm"].forEach(id => setPipeNode(id, ""));
+
+  const limitVal = $("limit").value;
+  const body = {
+    spec_name: name,
+    mode: currentMode,
+    limit: limitVal ? parseInt(limitVal) : null,
+  };
+
+  try {
+    const res = await fetch("/api/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (line) { try { handleEvent(JSON.parse(line)); } catch {} }
+      }
+    }
+  } catch (err) {
+    $("status").textContent = "Stream error: " + err.message;
+    $("status").className = "bad";
+  } finally {
+    $("go").disabled = false;
+  }
+}
+
+$("go").addEventListener("click", startRun);
+
+// ---- post-run output ----------------------------------------------------
+async function onRunComplete() {
+  const name = $("specSel").value;
+  if (!name) return;
+  const res = await fetch(`/api/output/${name}`);
+  const data = await res.json();
+  const files = data.files || [];
+
+  // show episode.mp4 in video player
+  const mp4 = files.find(f => f === "episode.mp4");
+  if (mp4) {
+    const p = $("player");
+    p.src = `/api/output/${name}/episode.mp4?t=${Date.now()}`;
+    p.style.display = "block";
+  }
+
+  // list per-beat WAVs (narration or music)
+  const narr = files.filter(f => /^b\d+\.wav$/.test(f)).sort();
+  const music = files.filter(f => /^b\d+_music\.wav$/.test(f)).sort();
+  const wavs = currentMode === "music" ? music : narr;
+
+  if (!mp4 && !wavs.length) {
+    $("mediaList").innerHTML = '<div class="empty">No output files found yet.</div>';
+    return;
+  }
+
+  let html = "";
+  if (wavs.length) {
+    html += wavs.map(f =>
+      `<div class="media-item"><div class="mt">${f}</div>
+       <audio controls src="/api/output/${name}/${f}"></audio></div>`
+    ).join("");
+  }
+  $("mediaList").innerHTML = html || '<div class="empty">No audio files.</div>';
+}
+
+// ---- helpers ------------------------------------------------------------
+function badge(cls, text) {
+  return `<span class="badge ${cls}">${text}</span>`;
+}
+
+function logEv(html) {
+  const div = document.createElement("div");
+  div.className = "ev";
+  div.innerHTML = html;
+  $("log").appendChild(div);
+  div.scrollIntoView({ block: "nearest" });
+}
+
+function updateStats() {
+  $("sPass").textContent  = passed;
+  $("sFail").textContent  = failed;
+  $("sSkip").textContent  = skipped;
+  $("sBeats").textContent = currentSpec ? currentSpec.beats.length : "—";
+}
+
+// ---- init ---------------------------------------------------------------
+loadSpecs();
+</script>
+</body>
+</html>
