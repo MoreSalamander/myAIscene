@@ -155,33 +155,51 @@
 
   <!-- ===== LEFT: spec + mode ============================================== -->
   <div class="col left">
-    <h2>Spec</h2>
-    <label>Episode spec</label>
-    <select id="specSel"><option value="">Loading…</option></select>
-    <div class="spec-meta" id="specMeta">
-      <div class="st" id="specTitle"></div>
-      <div class="sm" id="specInfo"></div>
+
+    <!-- WRITE TAB -->
+    <div id="paneWrite">
+      <h2>Write a spec</h2>
+      <label>Brief — describe any video you want</label>
+      <textarea id="brief" rows="4" placeholder="e.g. A 90-second mockumentary about the unspoken rules of elevator etiquette. Calm Attenborough tone, dry humor."></textarea>
+      <label style="margin-top:10px">Target duration (seconds)</label>
+      <input id="writeDuration" type="number" value="90" min="20" max="600" />
+      <label style="margin-top:6px">Ollama model</label>
+      <input id="writeModel" type="text" value="llama3.1:8b" />
+      <button id="goWrite">Generate Spec</button>
+      <p class="hint">llama3.1:8b → validated ProductionSpec JSON → saved to specs/. Switch to the Run tab to render it.</p>
     </div>
 
-    <h2 class="sep">Mode</h2>
-    <div class="modes">
-      <div class="mode-btn active" data-mode="narrate">Narrate</div>
-      <div class="mode-btn" data-mode="music">Music</div>
-      <div class="mode-btn" data-mode="assemble">Assemble</div>
+    <!-- DIVIDER -->
+    <div style="border-top:1px solid var(--line);margin:16px 0;"></div>
+
+    <!-- RUN TAB -->
+    <div id="paneRun">
+      <h2>Run</h2>
+      <label>Episode spec</label>
+      <select id="specSel"><option value="">Loading…</option></select>
+      <div class="spec-meta" id="specMeta">
+        <div class="st" id="specTitle"></div>
+        <div class="sm" id="specInfo"></div>
+      </div>
+
+      <h2 class="sep">Mode</h2>
+      <div class="modes">
+        <div class="mode-btn active" data-mode="narrate">Narrate</div>
+        <div class="mode-btn" data-mode="music">Music</div>
+        <div class="mode-btn" data-mode="assemble">Assemble</div>
+      </div>
+      <div class="hint" id="modeHint">
+        Render narration (Kokoro TTS) + verify with Whisper.
+      </div>
+
+      <label style="margin-top:14px">Limit to first N beats (empty = all)</label>
+      <input id="limit" type="number" min="1" placeholder="all" />
+
+      <button id="go">Run</button>
+      <p class="hint">
+        Narrate → Music → Assemble in sequence to build <code>episode.mp4</code>.
+      </p>
     </div>
-    <div class="hint" id="modeHint">
-      Render narration (Kokoro TTS) + verify with Whisper.
-    </div>
-
-    <label style="margin-top:14px">Limit to first N beats (empty = all)</label>
-    <input id="limit" type="number" min="1" placeholder="all 10" />
-
-    <button id="go">Run</button>
-
-    <p class="hint">
-      Each beat streams <code>gate_pass</code> / <code>gate_fail</code> events in real time.
-      Narrate → Music → Assemble in sequence to build <code>episode.mp4</code>.
-    </p>
   </div>
 
   <!-- ===== CENTER: pipeline + beat grid + log ============================= -->
@@ -506,6 +524,69 @@ function updateStats() {
   $("sSkip").textContent  = skipped;
   $("sBeats").textContent = currentSpec ? currentSpec.beats.length : "—";
 }
+
+// ---- write spec ---------------------------------------------------------
+async function writeSpec() {
+  const brief = $("brief").value.trim();
+  if (!brief) return;
+  $("goWrite").disabled = true;
+  $("goWrite").textContent = "Generating…";
+  $("log").innerHTML = "";
+  $("status").textContent = "Writing spec with llama3.1:8b…";
+  $("status").className = "";
+  passed = 0; failed = 0; skipped = 0;
+  updateStats();
+
+  const body = {
+    brief,
+    duration_s: parseInt($("writeDuration").value) || 90,
+    model: $("writeModel").value.trim() || "llama3.1:8b",
+  };
+  try {
+    const res = await fetch("/api/write", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (!line) continue;
+        try {
+          const e = JSON.parse(line);
+          if (e.event === "spec_ready") {
+            $("status").textContent = `Spec ready: "${e.title}" (${e.beats} beats)`;
+            $("status").className = "ok";
+            await loadSpecs();
+            // auto-select the new spec
+            $("specSel").value = e.spec_name;
+            onSpecChange();
+          } else if (e.event === "error") {
+            $("status").textContent = `Error: ${e.message}`;
+            $("status").className = "bad";
+          }
+          handleEvent(e);
+        } catch {}
+      }
+    }
+  } catch (err) {
+    $("status").textContent = "Write error: " + err.message;
+    $("status").className = "bad";
+  } finally {
+    $("goWrite").disabled = false;
+    $("goWrite").textContent = "Generate Spec";
+  }
+}
+
+$("goWrite").addEventListener("click", writeSpec);
 
 // ---- init ---------------------------------------------------------------
 loadSpecs();

@@ -1,0 +1,150 @@
+{
+  "episode": {
+    "title": "The Ancient Ritual of Calling Shotgun",
+    "genre": "documentary",
+    "tone": "calm Attenborough, dry humor",
+    "length_s": 60.0,
+    "platform": "youtube",
+    "resolution": [
+      1920,
+      1080
+    ],
+    "font": "Playfair Display",
+    "grain": 0.07,
+    "voice": {
+      "engine": "kokoro",
+      "voice": "bm_george",
+      "desc": "British male narrator"
+    }
+  },
+  "beats": [
+    {
+      "id": "b01",
+      "t0": 0.0,
+      "t1": 8.0,
+      "narration": "In the early days of automotive transportation, a ritual emerged to determine who would occupy the coveted front passenger seat.",
+      "direction": "Aerial shot of a vintage car driving down a scenic road.",
+      "footage_prompt": "Vintage car driving on a winding mountain road at sunset",
+      "music": {
+        "keywords": [
+          "acoustic guitar",
+          "folk instrumentals"
+        ],
+        "mood": "mellow"
+      },
+      "grade": {
+        "lut": "warm_documentary",
+        "note": "Enhance the warm tones of the vintage car and the natural scenery."
+      }
+    },
+    {
+      "id": "b02",
+      "t0": 8.0,
+      "t1": 16.0,
+      "narration": "This ancient custom, known as 'calling shotgun,' was a complex social dance of politeness and one-upmanship.",
+      "direction": "Close-up shot of two people arguing over the front seat.",
+      "footage_prompt": "Two people in a vintage car arguing with each other",
+      "music": {
+        "keywords": [
+          "dry wit",
+          "sarcastic tone"
+        ],
+        "mood": "humorous"
+      },
+      "grade": {
+        "lut": "cool_neutral",
+        "note": "Enhance the dry humor in this scene by applying a cool, neutral color grade."
+      }
+    },
+    {
+      "id": "b03",
+      "t0": 16.0,
+      "t1": 24.0,
+      "narration": "As time passed, the ritual evolved to include subtle cues and unspoken rules.",
+      "direction": "Aerial shot of a car driving down a highway with people waving from other cars.",
+      "footage_prompt": "Vintage car driving on a highway with people waving at each other",
+      "music": {
+        "keywords": [
+          "upbeat",
+          "instrumental"
+        ],
+        "mood": "lighthearted"
+      },
+      "grade": {
+        "lut": "high_contrast",
+        "note": "Enhance the high-contrast colors of the highway and the waving people."
+      }
+    },
+    {
+      "id": "b04",
+      "t0": 24.0,
+      "t1": 32.0,
+      "narration": "Today, calling shotgun remains a ubiquitous practice, with its own set of unwritten rules and social norms.",
+      "direction": "Close-up shot of a person proudly claiming the front seat.",
+      "footage_prompt": "Person proudly sitting in the front passenger seat",
+      "music": {
+        "keywords": [
+          "proud",
+          "triumphant"
+        ],
+        "mood": "proud"
+      },
+      "grade": {
+        "lut": "cool_vignette",
+        "note": "Enhance the cool, vignette-style color grade to convey a sense of pride and accomplishment."
+      }
+    },
+    {
+      "id": "b05",
+      "t0": 32.0,
+      "t1": 48.0,
+      "narration": "But as we continue to evolve as a society, perhaps it's time to reexamine this ancient ritual and its place in our modern world.",
+      "direction": "Aerial shot of a car driving away from the camera with a cityscape in the background.",
+      "footage_prompt": "Vintage car driving away from the camera with a city skyline in the background",
+      "music": {
+        "keywords": [
+          "reflections",
+          "contemplative"
+        ],
+        "mood": "contemplative"
+      },
+      "grade": {
+        "lut": "desaturated",
+        "note": "Apply a desaturated color grade to convey a sense of reflection and contemplation."
+      }
+    },
+    {
+      "id": "b06",
+      "t0": 48.0,
+      "t1": 60.0,
+      "narration": "Join us next time as we explore more fascinating aspects of human culture.",
+      "direction": "Closing shot of the narrator in front of a vintage car.",
+      "footage_prompt": "Narrator standing in front of a vintage car",
+      "music": {
+        "keywords": [
+          "upbeat",
+          "instrumental"
+        ],
+        "mood": "upbeat"
+      },
+      "grade": {
+        "lut": "bright_vivid",
+        "note": "Enhance the bright, vivid colors of the closing shot to leave a lasting impression on the viewer."
+      }
+    }
+  ],
+  "audio": {
+    "vo_db": -6.0,
+    "crossfade_s": 1.75,
+    "ambient": true
+  },
+  "titlecard": {
+    "text": "The Ancient Ritual of Calling Shotgun",
+    "subtitle": "",
+    "fade_s": 2.0
+  },
+  "credits": {
+    "script": "2023 Nature Documentary Script",
+    "year": 2023
+  }
+}

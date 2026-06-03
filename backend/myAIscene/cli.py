@@ -71,6 +71,23 @@ def _run_music(spec, out_dir, model_id, limit) -> int:
     return 0
 
 
+def _run_write(brief, out_spec, model, duration_s) -> int:
+    from .writer import OllamaEngine, SpecWriteError, SpecWriter
+    from .events import EventEmitter
+    em = EventEmitter()
+    writer = SpecWriter(OllamaEngine(model=model), max_retries=3)
+    try:
+        result = writer.write_to_file(brief, out_spec, target_duration_s=duration_s, emitter=em)
+    except SpecWriteError as e:
+        print(f"\nFAIL — {e}", file=sys.stderr)
+        return 1
+    print(f"\nOK — {result.spec.episode.title}", file=sys.stderr)
+    print(f"  beats:{len(result.spec.beats)}  length:{result.spec.episode.length_s}s"
+          f"  attempts:{result.attempts}", file=sys.stderr)
+    print(f"  -> {out_spec}", file=sys.stderr)
+    return 0
+
+
 def _run_assemble(spec, in_dir, out_file) -> int:
     from .local import LocalRenderer
     r = LocalRenderer(out_dir=in_dir)
@@ -84,7 +101,12 @@ def _run_assemble(spec, in_dir, out_file) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="myAIscene", description="local-first video production engine")
-    ap.add_argument("--spec", required=True)
+    ap.add_argument("--spec", default="", help="path to a ProductionSpec JSON (not needed for --write)")
+    ap.add_argument("--write", action="store_true", help="generate a spec from a brief (no --spec needed)")
+    ap.add_argument("--brief", default="", help="free-text video brief for --write")
+    ap.add_argument("--out-spec", default="", help="output spec JSON path for --write")
+    ap.add_argument("--duration", type=int, default=120, help="target duration in seconds for --write")
+    ap.add_argument("--write-model", default="llama3.1:8b", help="Ollama model for --write")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--narrate", action="store_true")
     ap.add_argument("--music", action="store_true")
@@ -99,6 +121,19 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--max-retries", type=int, default=MAX_RETRIES)
     args = ap.parse_args(argv)
 
+    # --write doesn't need a pre-existing spec
+    if args.write:
+        if not args.brief:
+            print("--write requires --brief", file=sys.stderr)
+            return 2
+        out_spec = Path(args.out_spec) if args.out_spec else \
+            Path(__file__).resolve().parents[2] / "specs" / \
+            (args.brief[:40].lower().replace(" ", "_").replace("/", "_") + ".json")
+        return _run_write(args.brief, out_spec, args.write_model, args.duration)
+
+    if not args.spec:
+        print("--spec is required (or use --write to generate one)", file=sys.stderr)
+        return 2
     try:
         spec = load_spec(args.spec)
     except SpecError as e:
