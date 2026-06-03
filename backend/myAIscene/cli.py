@@ -23,7 +23,7 @@ from pathlib import Path
 
 from .events import EventEmitter
 from .pipeline import (MAX_RETRIES, PipelineError, assemble_from_assets,
-                        music_only, narrate_only, run)
+                        music_only, narrate_only, run, visual_only)
 from .renderers import ScriptedRenderer
 from .spec import SpecError, load_spec
 
@@ -58,6 +58,16 @@ def _run_narrate(spec, out_dir, voice, whisper_model, limit) -> int:
             issues = ([f"narration({b.narration_gate.detail})"] if not b.narration_gate.passed else []) + \
                      ([f"duration({b.duration_gate.detail})"] if not b.duration_gate.passed else [])
             print(f"  - {b.beat_id}: {'; '.join(issues)}", file=sys.stderr)
+    return 0 if m.ok else 1
+
+
+def _run_visual(spec, out_dir, limit) -> int:
+    from .local import LocalRenderer
+    r = LocalRenderer(out_dir=out_dir)
+    m = visual_only(spec, r, _quiet(), limit=limit)
+    s = m.summary()
+    print(f"\n{'OK' if m.ok else 'PARTIAL'} — visuals: {m.title}", file=sys.stderr)
+    print(f"  beats:{s['beats']}  footage_ok:{s['footage_ok']}  fallbacks:{s['fallbacks']}", file=sys.stderr)
     return 0 if m.ok else 1
 
 
@@ -112,6 +122,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--series", default="", help="series style preset for --write (e.g. 'journal')")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--narrate", action="store_true")
+    ap.add_argument("--visual", action="store_true")
     ap.add_argument("--music", action="store_true")
     ap.add_argument("--assemble", action="store_true")
     ap.add_argument("--out-dir", default="/tmp/myAIscene")
@@ -145,6 +156,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.narrate:
         return _run_narrate(spec, args.out_dir, args.voice, args.whisper_model, args.limit)
+    if args.visual:
+        return _run_visual(spec, args.out_dir, args.limit)
     if args.music:
         return _run_music(spec, args.out_dir, args.music_model, args.limit)
     if args.assemble:

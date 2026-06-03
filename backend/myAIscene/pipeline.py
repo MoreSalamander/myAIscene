@@ -259,6 +259,93 @@ def narrate_only(
     return manifest
 
 
+# ---- visual_only (Phase 3: SDXL stills + Ken Burns clips) --------------
+
+@dataclass
+class VisualBeatResult:
+    beat_id: str
+    image_path: str
+    clip_path: str
+    clip_score: float
+    footage_gate: V.GateResult
+    fallback: bool = False
+
+    @property
+    def ok(self) -> bool:
+        return self.footage_gate.passed or self.fallback
+
+
+@dataclass
+class VisualManifest:
+    title: str
+    beats: list[VisualBeatResult] = field(default_factory=list)
+
+    @property
+    def ok(self) -> bool:
+        return all(b.ok for b in self.beats)
+
+    def summary(self) -> dict[str, Any]:
+        return {
+            "beats": len(self.beats),
+            "footage_ok": sum(b.footage_gate.passed for b in self.beats),
+            "fallbacks": sum(b.fallback for b in self.beats),
+        }
+
+
+def visual_only(
+    spec: ProductionSpec,
+    renderer: Renderer,
+    emitter: EventEmitter | None = None,
+    limit: int | None = None,
+    max_retries: int = MAX_RETRIES,
+) -> VisualManifest:
+    """Generate SDXL stills + Ken Burns clips per beat with CLIP gate.
+    Retries on footage_verify failure; falls back to neutral on exhaustion
+    (same doctrine as the full pipeline). Does not raise on content failure.
+    """
+    em = emitter or EventEmitter()
+    beats = spec.beats[:limit] if limit else spec.beats
+    em.step_start("spec_load", title=spec.episode.title, beats=len(beats))
+    em.step_complete("spec_load")
+
+    manifest = VisualManifest(title=spec.episode.title)
+    for i, beat in enumerate(beats):
+        em.step_start("footage_synth", beat=beat.id, index=i + 1, total=len(beats))
+
+        fallback = False
+        last_still = None
+        gate = None
+        for attempt in range(max_retries + 1):
+            still = renderer.still(beat, spec)
+            last_still = still
+            gate = V.footage_verify(beat, still.clip_score)
+            if gate.passed:
+                em.gate_pass("footage_verify", beat=beat.id, **gate.metrics)
+                break
+            em.gate_fail("footage_verify", beat=beat.id, **gate.metrics)
+            if attempt < max_retries:
+                em.retry("footage_verify", beat=beat.id, attempt=attempt + 1)
+            else:
+                em.fallback("footage_verify", beat=beat.id, to="neutral_clip")
+                fallback = True
+
+        clip = renderer.motion(beat, last_still, spec)
+        em.step_complete("footage_synth", beat=beat.id,
+                         clip=clip.clip_path, score=round(last_still.clip_score, 3))
+
+        manifest.beats.append(VisualBeatResult(
+            beat_id=beat.id,
+            image_path=last_still.image_path,
+            clip_path=clip.clip_path,
+            clip_score=last_still.clip_score,
+            footage_gate=gate,
+            fallback=fallback,
+        ))
+
+    em.done(**manifest.summary())
+    return manifest
+
+
 @dataclass
 class MusicBeatResult:
     beat_id: str
