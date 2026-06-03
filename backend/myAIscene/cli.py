@@ -1,15 +1,21 @@
-"""my-AI-scene CLI.
+"""my-AI-scene CLI — renders a ProductionSpec into video.
+
+To generate a spec from a brief, use my-AI-script (../myAIscript).
 
     # Phase 1 — prove the scaffold offline (no models):
     python -m myAIscene.cli --spec ../specs/not_it_protocol.json --dry-run
 
     # Phase 2 — render narration (Kokoro) + Whisper-verified gates:
-    python -m myAIscene.cli --spec ../specs/not_it_protocol.json --narrate \\
-        --out-dir ../out/not_it/narration [--limit 2]
+    python -m myAIscene.cli --spec ../specs/not_it_protocol.json \\
+        --narrate --out-dir ../out/not_it
+
+    # Phase 3 — generate SDXL stills + Ken Burns clips:
+    python -m myAIscene.cli --spec ../specs/not_it_protocol.json \\
+        --visual --out-dir ../out/not_it
 
     # Phase 4 — generate music beds (MusicGen):
-    python -m myAIscene.cli --spec ../specs/not_it_protocol.json --music \\
-        --out-dir ../out/not_it [--limit 2]
+    python -m myAIscene.cli --spec ../specs/not_it_protocol.json \\
+        --music --out-dir ../out/not_it
 
     # Phase 5 — assemble episode from pre-generated per-beat assets:
     python -m myAIscene.cli --spec ../specs/not_it_protocol.json \\
@@ -55,8 +61,10 @@ def _run_narrate(spec, out_dir, voice, whisper_model, limit) -> int:
           f"  total_vo:{s['total_audio_s']}s", file=sys.stderr)
     for b in m.beats:
         if not b.ok:
-            issues = ([f"narration({b.narration_gate.detail})"] if not b.narration_gate.passed else []) + \
-                     ([f"duration({b.duration_gate.detail})"] if not b.duration_gate.passed else [])
+            issues = (
+                ([f"narration({b.narration_gate.detail})"] if not b.narration_gate.passed else []) +
+                ([f"duration({b.duration_gate.detail})"] if not b.duration_gate.passed else [])
+            )
             print(f"  - {b.beat_id}: {'; '.join(issues)}", file=sys.stderr)
     return 0 if m.ok else 1
 
@@ -81,25 +89,6 @@ def _run_music(spec, out_dir, model_id, limit) -> int:
     return 0
 
 
-def _run_write(brief, out_spec, model, duration_s, series) -> int:
-    from .writer import OllamaEngine, SERIES_STYLES, SpecWriteError, SpecWriter
-    from .events import EventEmitter
-    em = EventEmitter()
-    style = SERIES_STYLES.get(series, "") if series else ""
-    writer = SpecWriter(OllamaEngine(model=model), max_retries=3)
-    try:
-        result = writer.write_to_file(brief, out_spec, target_duration_s=duration_s,
-                                      style_context=style, emitter=em)
-    except SpecWriteError as e:
-        print(f"\nFAIL — {e}", file=sys.stderr)
-        return 1
-    print(f"\nOK — {result.spec.episode.title}", file=sys.stderr)
-    print(f"  beats:{len(result.spec.beats)}  length:{result.spec.episode.length_s}s"
-          f"  attempts:{result.attempts}", file=sys.stderr)
-    print(f"  -> {out_spec}", file=sys.stderr)
-    return 0
-
-
 def _run_assemble(spec, in_dir, out_file) -> int:
     from .local import LocalRenderer
     r = LocalRenderer(out_dir=in_dir)
@@ -112,14 +101,11 @@ def _run_assemble(spec, in_dir, out_file) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(prog="myAIscene", description="local-first video production engine")
-    ap.add_argument("--spec", default="", help="path to a ProductionSpec JSON (not needed for --write)")
-    ap.add_argument("--write", action="store_true", help="generate a spec from a brief (no --spec needed)")
-    ap.add_argument("--brief", default="", help="free-text video brief for --write")
-    ap.add_argument("--out-spec", default="", help="output spec JSON path for --write")
-    ap.add_argument("--duration", type=int, default=120, help="target duration in seconds for --write")
-    ap.add_argument("--write-model", default="llama3.1:8b", help="Ollama model for --write")
-    ap.add_argument("--series", default="", help="series style preset for --write (e.g. 'journal')")
+    ap = argparse.ArgumentParser(
+        prog="myAIscene",
+        description="Render a ProductionSpec into video. Use my-AI-script to generate specs.",
+    )
+    ap.add_argument("--spec", required=True, help="path to a ProductionSpec JSON")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--narrate", action="store_true")
     ap.add_argument("--visual", action="store_true")
@@ -135,19 +121,6 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--max-retries", type=int, default=MAX_RETRIES)
     args = ap.parse_args(argv)
 
-    # --write doesn't need a pre-existing spec
-    if args.write:
-        if not args.brief:
-            print("--write requires --brief", file=sys.stderr)
-            return 2
-        out_spec = Path(args.out_spec) if args.out_spec else \
-            Path(__file__).resolve().parents[2] / "specs" / \
-            (args.brief[:40].lower().replace(" ", "_").replace("/", "_") + ".json")
-        return _run_write(args.brief, out_spec, args.write_model, args.duration, args.series)
-
-    if not args.spec:
-        print("--spec is required (or use --write to generate one)", file=sys.stderr)
-        return 2
     try:
         spec = load_spec(args.spec)
     except SpecError as e:
@@ -166,7 +139,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.dry_run:
         return _run_dry(spec, args.max_retries)
 
-    print("choose: --dry-run | --narrate | --music | --assemble", file=sys.stderr)
+    print("choose: --dry-run | --narrate | --visual | --music | --assemble", file=sys.stderr)
     return 3
 
 

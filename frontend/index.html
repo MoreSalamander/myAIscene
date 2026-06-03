@@ -156,28 +156,6 @@
   <!-- ===== LEFT: spec + mode ============================================== -->
   <div class="col left">
 
-    <!-- WRITE TAB -->
-    <div id="paneWrite">
-      <h2>Write a spec</h2>
-      <label>Brief — describe any video you want</label>
-      <textarea id="brief" rows="4" placeholder="e.g. A 90-second mockumentary about the unspoken rules of elevator etiquette. Calm Attenborough tone, dry humor."></textarea>
-      <label style="margin-top:10px">Series style</label>
-      <select id="writeSeries">
-        <option value="">— none (generic) —</option>
-        <option value="journal">The Journal of Informal Human Protocols</option>
-      </select>
-      <label style="margin-top:8px">Target duration (seconds)</label>
-      <input id="writeDuration" type="number" value="90" min="20" max="600" />
-      <label style="margin-top:6px">Ollama model</label>
-      <input id="writeModel" type="text" value="llama3.1:8b" />
-      <button id="goWrite">Generate Spec</button>
-      <p class="hint">llama3.1:8b → validated ProductionSpec JSON → saved to specs/. Switch to Run to render it.</p>
-    </div>
-
-    <!-- DIVIDER -->
-    <div style="border-top:1px solid var(--line);margin:16px 0;"></div>
-
-    <!-- RUN TAB -->
     <div id="paneRun">
       <h2>Run</h2>
       <label>Episode spec</label>
@@ -529,70 +507,6 @@ function updateStats() {
   $("sSkip").textContent  = skipped;
   $("sBeats").textContent = currentSpec ? currentSpec.beats.length : "—";
 }
-
-// ---- write spec ---------------------------------------------------------
-async function writeSpec() {
-  const brief = $("brief").value.trim();
-  if (!brief) return;
-  $("goWrite").disabled = true;
-  $("goWrite").textContent = "Generating…";
-  $("log").innerHTML = "";
-  $("status").textContent = "Writing spec with llama3.1:8b…";
-  $("status").className = "";
-  passed = 0; failed = 0; skipped = 0;
-  updateStats();
-
-  const body = {
-    brief,
-    duration_s: parseInt($("writeDuration").value) || 90,
-    model: $("writeModel").value.trim() || "llama3.1:8b",
-    series: $("writeSeries").value,
-  };
-  try {
-    const res = await fetch("/api/write", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const reader = res.body.getReader();
-    const dec = new TextDecoder();
-    let buf = "";
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buf += dec.decode(value, { stream: true });
-      let nl;
-      while ((nl = buf.indexOf("\n")) >= 0) {
-        const line = buf.slice(0, nl).trim();
-        buf = buf.slice(nl + 1);
-        if (!line) continue;
-        try {
-          const e = JSON.parse(line);
-          if (e.event === "spec_ready") {
-            $("status").textContent = `Spec ready: "${e.title}" (${e.beats} beats)`;
-            $("status").className = "ok";
-            await loadSpecs();
-            // auto-select the new spec
-            $("specSel").value = e.spec_name;
-            onSpecChange();
-          } else if (e.event === "error") {
-            $("status").textContent = `Error: ${e.message}`;
-            $("status").className = "bad";
-          }
-          handleEvent(e);
-        } catch {}
-      }
-    }
-  } catch (err) {
-    $("status").textContent = "Write error: " + err.message;
-    $("status").className = "bad";
-  } finally {
-    $("goWrite").disabled = false;
-    $("goWrite").textContent = "Generate Spec";
-  }
-}
-
-$("goWrite").addEventListener("click", writeSpec);
 
 // ---- init ---------------------------------------------------------------
 loadSpecs();

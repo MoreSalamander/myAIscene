@@ -38,12 +38,6 @@ class RunRequest(BaseModel):
     music_model: str = "facebook/musicgen-small"
 
 
-class WriteRequest(BaseModel):
-    brief: str
-    duration_s: int = 120
-    model: str = "llama3.1:8b"
-    series: str = ""           # e.g. "journal" — injects series style guide
-    out_name: Optional[str] = None   # stem for the output spec file
 
 
 # ---- streaming run ----------------------------------------------------------
@@ -100,49 +94,6 @@ def _ndjson_run(req: RunRequest) -> Iterator[str]:
         if ev is None:
             break
         yield json.dumps(ev, ensure_ascii=False) + "\n"
-
-
-def _ndjson_write(req: WriteRequest) -> Iterator[str]:
-    """Generate a ProductionSpec from a brief; stream events, end with the spec."""
-    import re
-    q: queue.Queue[dict | None] = queue.Queue()
-    em = EventEmitter(out=None, sink=q.put)
-
-    # derive a filesystem-safe spec name
-    name = req.out_name or re.sub(r"[^a-z0-9]+", "_", req.brief[:40].lower()).strip("_")
-    out_path = SPECS_DIR / f"{name}.json"
-
-    def _worker() -> None:
-        try:
-            from myAIscene.writer import OllamaEngine, SERIES_STYLES, SpecWriteError, SpecWriter
-            style = SERIES_STYLES.get(req.series, "") if req.series else ""
-            writer = SpecWriter(OllamaEngine(model=req.model), max_retries=3)
-            result = writer.write_to_file(
-                req.brief, out_path,
-                target_duration_s=req.duration_s,
-                style_context=style,
-                emitter=em,
-            )
-            # Final event carries the spec name so the UI can switch to it
-            em.emit("spec_ready", "spec_write",
-                    spec_name=name, title=result.spec.episode.title,
-                    beats=len(result.spec.beats))
-        except Exception as exc:
-            em.error("server", message=f"{type(exc).__name__}: {exc}")
-        finally:
-            q.put(None)
-
-    threading.Thread(target=_worker, daemon=True).start()
-    while True:
-        ev = q.get()
-        if ev is None:
-            break
-        yield json.dumps(ev, ensure_ascii=False) + "\n"
-
-
-@app.post("/api/write")
-def write_spec(req: WriteRequest) -> StreamingResponse:
-    return StreamingResponse(_ndjson_write(req), media_type="application/x-ndjson")
 
 
 @app.post("/api/run")
