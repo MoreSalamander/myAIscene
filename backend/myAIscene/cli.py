@@ -71,13 +71,15 @@ def _run_music(spec, out_dir, model_id, limit) -> int:
     return 0
 
 
-def _run_write(brief, out_spec, model, duration_s) -> int:
-    from .writer import OllamaEngine, SpecWriteError, SpecWriter
+def _run_write(brief, out_spec, model, duration_s, series) -> int:
+    from .writer import OllamaEngine, SERIES_STYLES, SpecWriteError, SpecWriter
     from .events import EventEmitter
     em = EventEmitter()
+    style = SERIES_STYLES.get(series, "") if series else ""
     writer = SpecWriter(OllamaEngine(model=model), max_retries=3)
     try:
-        result = writer.write_to_file(brief, out_spec, target_duration_s=duration_s, emitter=em)
+        result = writer.write_to_file(brief, out_spec, target_duration_s=duration_s,
+                                      style_context=style, emitter=em)
     except SpecWriteError as e:
         print(f"\nFAIL — {e}", file=sys.stderr)
         return 1
@@ -107,6 +109,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--out-spec", default="", help="output spec JSON path for --write")
     ap.add_argument("--duration", type=int, default=120, help="target duration in seconds for --write")
     ap.add_argument("--write-model", default="llama3.1:8b", help="Ollama model for --write")
+    ap.add_argument("--series", default="", help="series style preset for --write (e.g. 'journal')")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--narrate", action="store_true")
     ap.add_argument("--music", action="store_true")
@@ -129,7 +132,7 @@ def main(argv: list[str] | None = None) -> int:
         out_spec = Path(args.out_spec) if args.out_spec else \
             Path(__file__).resolve().parents[2] / "specs" / \
             (args.brief[:40].lower().replace(" ", "_").replace("/", "_") + ".json")
-        return _run_write(args.brief, out_spec, args.write_model, args.duration)
+        return _run_write(args.brief, out_spec, args.write_model, args.duration, args.series)
 
     if not args.spec:
         print("--spec is required (or use --write to generate one)", file=sys.stderr)

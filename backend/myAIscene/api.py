@@ -42,6 +42,7 @@ class WriteRequest(BaseModel):
     brief: str
     duration_s: int = 120
     model: str = "llama3.1:8b"
+    series: str = ""           # e.g. "journal" — injects series style guide
     out_name: Optional[str] = None   # stem for the output spec file
 
 
@@ -113,11 +114,13 @@ def _ndjson_write(req: WriteRequest) -> Iterator[str]:
 
     def _worker() -> None:
         try:
-            from myAIscene.writer import OllamaEngine, SpecWriteError, SpecWriter
+            from myAIscene.writer import OllamaEngine, SERIES_STYLES, SpecWriteError, SpecWriter
+            style = SERIES_STYLES.get(req.series, "") if req.series else ""
             writer = SpecWriter(OllamaEngine(model=req.model), max_retries=3)
             result = writer.write_to_file(
                 req.brief, out_path,
                 target_duration_s=req.duration_s,
+                style_context=style,
                 emitter=em,
             )
             # Final event carries the spec name so the UI can switch to it

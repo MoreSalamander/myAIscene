@@ -161,12 +161,17 @@
       <h2>Write a spec</h2>
       <label>Brief — describe any video you want</label>
       <textarea id="brief" rows="4" placeholder="e.g. A 90-second mockumentary about the unspoken rules of elevator etiquette. Calm Attenborough tone, dry humor."></textarea>
-      <label style="margin-top:10px">Target duration (seconds)</label>
+      <label style="margin-top:10px">Series style</label>
+      <select id="writeSeries">
+        <option value="">— none (generic) —</option>
+        <option value="journal">The Journal of Informal Human Protocols</option>
+      </select>
+      <label style="margin-top:8px">Target duration (seconds)</label>
       <input id="writeDuration" type="number" value="90" min="20" max="600" />
       <label style="margin-top:6px">Ollama model</label>
       <input id="writeModel" type="text" value="llama3.1:8b" />
       <button id="goWrite">Generate Spec</button>
-      <p class="hint">llama3.1:8b → validated ProductionSpec JSON → saved to specs/. Switch to the Run tab to render it.</p>
+      <p class="hint">llama3.1:8b → validated ProductionSpec JSON → saved to specs/. Switch to Run to render it.</p>
     </div>
 
     <!-- DIVIDER -->
@@ -541,6 +546,7 @@ async function writeSpec() {
     brief,
     duration_s: parseInt($("writeDuration").value) || 90,
     model: $("writeModel").value.trim() || "llama3.1:8b",
+    series: $("writeSeries").value,
   };
   try {
     const res = await fetch("/api/write", {

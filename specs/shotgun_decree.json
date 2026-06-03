@@ -1,0 +1,151 @@
+{
+  "episode": {
+    "title": "The Shotgun Decree",
+    "genre": "mockumentary-comedy",
+    "tone": "calm David Attenborough-style narration with dry academic humor",
+    "length_s": 90.0,
+    "platform": "youtube",
+    "resolution": [
+      1920,
+      1080
+    ],
+    "font": "Playfair Display",
+    "grain": 0.07,
+    "voice": {
+      "engine": "kokoro",
+      "voice": "bm_george",
+      "desc": "British male narrator, calm, deep, documentary"
+    }
+  },
+  "beats": [
+    {
+      "id": "b01",
+      "t0": 0.0,
+      "t1": 15.0,
+      "narration": "In the vast and chaotic ecosystem of human cooperation, there exists a most remarkable survival mechanism.",
+      "direction": "Wide habitat shot, warm daylight.",
+      "footage_prompt": "A bustling highway with cars moving in both directions. The front passenger seat is vacant.",
+      "music": {
+        "keywords": [
+          "majestic",
+          "epic"
+        ],
+        "mood": "majestic"
+      },
+      "grade": {
+        "lut": "warm_documentary",
+        "note": ""
+      }
+    },
+    {
+      "id": "b02",
+      "t0": 15.0,
+      "t1": 30.0,
+      "narration": "It is swift. It is ruthless. It is the Shotgun Decree.",
+      "direction": "Close-ups of drivers staring at each other, tension rising.",
+      "footage_prompt": "A close-up of a driver's face, eyes fixed on another car in front.",
+      "music": {
+        "keywords": [
+          "tense",
+          "ominous"
+        ],
+        "mood": "tense"
+      },
+      "grade": {
+        "lut": "cool_neutral",
+        "note": ""
+      }
+    },
+    {
+      "id": "b03",
+      "t0": 30.0,
+      "t1": 45.0,
+      "narration": "Observe the pack as they scramble for the front passenger seat. It is a spectacle of territorial pre-emption.",
+      "direction": "Energetic, slow-motion footage of drivers competing for the seat.",
+      "footage_prompt": "A slow-motion shot of several cars moving in close proximity to each other, with drivers gesturing and pointing.",
+      "music": {
+        "keywords": [
+          "absurd",
+          "comical"
+        ],
+        "mood": "absurd"
+      },
+      "grade": {
+        "lut": "high_contrast",
+        "note": ""
+      }
+    },
+    {
+      "id": "b04",
+      "t0": 45.0,
+      "t1": 60.0,
+      "narration": "The Shotgun Decree is a merciless arbiter of social hierarchy. The winner takes the seat, and the loser... well, they lose.",
+      "direction": "Dramatic reveal of the loser's face, desaturated and cinematic.",
+      "footage_prompt": "A close-up shot of a defeated driver's face, with a mixture of disappointment and resignation.",
+      "music": {
+        "keywords": [
+          "mock-heroic",
+          "dramatic"
+        ],
+        "mood": "mock-heroic"
+      },
+      "grade": {
+        "lut": "desaturated",
+        "note": ""
+      }
+    },
+    {
+      "id": "b05",
+      "t0": 60.0,
+      "t1": 75.0,
+      "narration": "And so, the defeated specimen is left to carry the burden of this enduring custom.",
+      "direction": "Melancholic footage of the loser getting out of their car and walking away.",
+      "footage_prompt": "A shot of a driver slowly getting out of their car and walking away, looking dejected.",
+      "music": {
+        "keywords": [
+          "melancholic",
+          "pity"
+        ],
+        "mood": "melancholic"
+      },
+      "grade": {
+        "lut": "cool_vignette",
+        "note": ""
+      }
+    },
+    {
+      "id": "b06",
+      "t0": 75.0,
+      "t1": 90.0,
+      "narration": "Social scientists have long marveled at the elegance of this mechanism. No formal governance, no voting, no justice whatsoever.",
+      "direction": "Fake academic examination with mock graphs and statistics.",
+      "footage_prompt": "A shot of a whiteboard with complex graphs and charts, accompanied by a serious-looking academic.",
+      "music": {
+        "keywords": [
+          "academic",
+          "dry"
+        ],
+        "mood": "academic"
+      },
+      "grade": {
+        "lut": "clean_sterile",
+        "note": ""
+      }
+    }
+  ],
+  "audio": {
+    "vo_db": -6.0,
+    "crossfade_s": 1.75,
+    "ambient": true
+  },
+  "titlecard": {
+    "text": "",
+    "subtitle": "A Comedy Mockumentary",
+    "fade_s": 2.0
+  },
+  "credits": {
+    "script": "The Shotgun Decree – A Study in Territorial Pre-emption",
+    "year": 2026,
+    "imprint": "University of Nowhere Press"
+  }
+}
