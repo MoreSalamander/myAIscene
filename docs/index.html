@@ -3,85 +3,151 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>my-AI-scene — a verification-driven local video production engine</title>
-<meta name="description" content="A human authors a ProductionSpec; local HuggingFace models synthesize narration, footage, and music inside it; pure-Python verifiers decide what survives to the final cut. ProductionSpec → graded, scored, assembled MP4." />
+<title>my-AI-scene — a production guide becomes a verified, assembled MP4</title>
+<meta name="description" content="A local-first video production engine. A human authors a ProductionSpec; local HuggingFace models synthesize narration, footage, and music inside it; pure-Python verifiers decide what survives to the final cut. Watch the footage gate reject and retry." />
 <style>
   :root {
     --bg:#0d0b08; --panel:#181410; --line:#2e2820; --ink:#f0eae0; --dim:#a99c88;
-    --accent:#fbbf24; --accent2:#f59e0b; --green:#5bbf8f; --red:#e0556b;
+    --accent:#fbbf24; --amber:#fbbf24; --blue:#6db3f2; --red:#e0556b; --ok:#5ec27e;
     --mono:ui-monospace,SFMono-Regular,Menlo,monospace; --sans:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
   }
   *{box-sizing:border-box;} body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.65;-webkit-font-smoothing:antialiased;}
   a{color:var(--accent);text-decoration:none;} a:hover{text-decoration:underline;}
-  .wrap{max-width:840px;margin:0 auto;padding:0 22px 110px;}
-  header{padding:80px 0 36px;border-bottom:1px solid var(--line);background:radial-gradient(120% 80% at 50% -10%,rgba(251,191,36,.10),transparent 60%);}
+  .wrap{max-width:880px;margin:0 auto;padding:0 22px 110px;}
+  header{padding:74px 0 34px;border-bottom:1px solid var(--line);background:radial-gradient(120% 80% at 50% -10%,rgba(251,191,36,.10),transparent 60%);}
+  .back{font-family:var(--mono);font-size:12px;color:var(--dim);text-decoration:none;display:inline-block;margin-bottom:16px;}
   .kicker{font-family:var(--mono);font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:14px;}
-  h1{font-size:46px;line-height:1.05;margin:0 0 16px;letter-spacing:-1px;font-weight:800;}
+  h1{font-size:48px;line-height:1.04;margin:0 0 16px;letter-spacing:-1px;font-weight:800;}
   .lede{font-size:19px;color:var(--dim);max-width:680px;} .lede strong{color:var(--ink);font-weight:600;}
   .tagline{font-family:var(--mono);color:var(--accent);font-size:14px;letter-spacing:1px;margin-top:20px;}
-  h2{font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin:58px 0 6px;}
+  h2{font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin:60px 0 6px;}
   .h2sub{font-size:25px;font-weight:700;margin:0 0 16px;letter-spacing:-.5px;}
   p{margin:0 0 16px;} .muted{color:var(--dim);} em{color:var(--ink);font-style:normal;border-bottom:1px dashed var(--dim);}
+  code{font-family:var(--mono);font-size:.9em;color:var(--amber);}
+  .runner{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px 22px 20px;margin:22px 0;}
+  .runbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;}
+  .runbar .t{font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);}
+  .attempt{font-family:var(--mono);font-size:12px;color:var(--dim);} .attempt b{color:var(--accent);}
+  .track{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;}
+  .stage{flex:1;min-width:84px;border:1px solid var(--line);border-radius:10px;background:#120f0a;padding:11px 8px;text-align:center;transition:all .3s ease;}
+  .stage .sn{font-family:var(--mono);font-size:11px;color:var(--dim);transition:color .3s;}
+  .stage .sg{font-size:10px;font-family:var(--mono);color:#5a5040;margin-top:3px;height:13px;}
+  .stage.active{border-color:var(--accent);background:rgba(251,191,36,.10);box-shadow:0 0 22px -6px var(--accent);}
+  .stage.active .sn{color:var(--ink);}
+  .stage.pass{border-color:var(--ok);} .stage.pass .sg{color:var(--ok);}
+  .stage.fail{border-color:var(--red);background:rgba(224,85,107,.10);} .stage.fail .sg{color:var(--red);} .stage.fail .sn{color:#f4b9c4;}
+  .stage.drop{opacity:.5;border-style:dashed;} .stage.drop .sg{color:var(--amber);}
+  .arrow{display:flex;align-items:center;color:#46402e;font-size:15px;padding:0 4px;}
+  .console{margin-top:16px;background:#0a0805;border:1px solid var(--line);border-radius:10px;padding:13px 15px;font-family:var(--mono);font-size:12px;line-height:1.85;height:150px;overflow:hidden;}
+  .console .ln{white-space:nowrap;} .console .ev{color:var(--dim);} .console .k{color:var(--blue);}
+  .console .pass{color:var(--ok);} .console .fail{color:var(--red);} .console .done{color:var(--amber);}
+  .scorebar{display:flex;align-items:center;gap:12px;margin-top:14px;font-family:var(--mono);font-size:12px;}
+  .meter{flex:1;height:8px;background:#120f0a;border:1px solid var(--line);border-radius:6px;overflow:hidden;}
+  .meter .fill{height:100%;width:0;background:var(--red);transition:width .6s ease,background .4s;}
+  .scoreval{min-width:120px;text-align:right;color:var(--dim);} .scoreval b{font-size:14px;}
+  .caption{font-size:12.5px;color:var(--dim);margin-top:14px;line-height:1.5;}
+  .moves{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:22px 0;}
+  .move{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;}
+  .move .num{font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;font-weight:700;}
+  .move.e .num{color:var(--amber);} .move.s .num{color:var(--blue);} .move.v .num{color:var(--ok);}
+  .move p{font-size:13.5px;color:var(--dim);margin:0;line-height:1.55;} .move p b{color:var(--ink);font-weight:600;}
   .callout{border-left:3px solid var(--accent);background:rgba(251,191,36,.07);border-radius:0 12px 12px 0;padding:16px 20px;margin:22px 0;font-size:16px;} .callout strong{color:var(--ink);}
-  .flow{font-family:var(--mono);font-size:13px;color:var(--dim);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:20px 0;overflow-x:auto;} .flow b{color:var(--accent);}
-  ol.steps{counter-reset:s;list-style:none;padding:0;margin:18px 0;}
-  ol.steps li{position:relative;padding:12px 0 12px 46px;border-top:1px solid var(--line);} ol.steps li:first-child{border-top:none;}
-  ol.steps li::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:12px;font-family:var(--mono);font-size:13px;color:var(--accent);border:1px solid var(--line);border-radius:8px;width:30px;height:30px;display:grid;place-items:center;} ol.steps b{color:var(--ink);}
-  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 24px;margin:22px 0;}
-  .stat{font-family:var(--mono);font-size:13px;color:var(--dim);line-height:2;} .stat b{color:var(--ink);} .stat .done{color:var(--green);} .stat .next{color:var(--accent);}
   footer{margin-top:58px;padding-top:24px;border-top:1px solid var(--line);font-family:var(--mono);font-size:12px;color:var(--dim);}
-  @media(max-width:640px){h1{font-size:34px;}}
+  @media(max-width:640px){h1{font-size:34px;} .moves{grid-template-columns:1fr;} .arrow{display:none;} .stage{min-width:44%;}}
 </style>
 </head>
 <body>
 <div class="wrap">
+
 <header>
-  <a href="https://moresalamander.github.io" style="font-family:var(--mono);font-size:12px;color:var(--dim);text-decoration:none;display:inline-block;margin-bottom:16px">&larr; the studio</a>
+  <a class="back" href="https://moresalamander.github.io">&larr; the studio</a>
   <div class="kicker">A MoreSalamander · Productions engine</div>
   <h1>my-AI-scene</h1>
-  <p class="lede">A local-first, verification-driven <strong>video production engine</strong>. A human
-  authors a <strong>ProductionSpec</strong>; local HuggingFace models synthesize the narration, footage,
-  and music inside it; <strong>pure-Python verifiers</strong> decide what survives to the final cut.</p>
+  <p class="lede">A local-first <strong>video production engine</strong>. A human authors a
+  <code>ProductionSpec</code>; local HuggingFace models synthesize the narration, footage, and music inside
+  it; <strong>pure-Python verifiers decide what survives</strong> to the final cut.</p>
   <div class="tagline">Same thesis, third medium.</div>
 </header>
 
-<h2>What it does</h2>
+<h2>What it is</h2>
 <div class="h2sub">A production guide becomes a graded, assembled MP4.</div>
-<p>Where my-AI-story turns a series bible into a multi-voice audio episode, my-AI-scene turns a
-production guide into a scored, color-graded, assembled video — under the same
-<em>Deterministic Scaffold</em> thesis: human-owned constraints → AI synthesis → deterministic
-verification at every boundary. It's the engine behind <em>The Journal of Informal Human Protocols</em>,
-the MoreSalamander mockumentary series.</p>
-<div class="flow">
-  ProductionSpec &nbsp;<b>→</b>&nbsp; narration · footage · music &nbsp;<b>→</b>&nbsp; verify each boundary &nbsp;<b>→</b>&nbsp; grade + assemble &nbsp;<b>→</b>&nbsp; episode.mp4
-</div>
-<div class="callout">
-  <strong>The naming trio.</strong> my-AI-stro (the conductor) · my-AI-story (the written episode) ·
-  my-AI-scene (the visual cut). And <a href="https://github.com/MoreSalamander/myAIscript">my-AI-script</a>
-  writes the ProductionSpec that feeds this engine.
+<p>Where my-AI-story turns a series bible into multi-voice audio, my-AI-scene turns a production guide into a
+scored, color-graded, assembled video — the engine behind <em>The Journal of Informal Human Protocols</em>.
+Human-owned constraints → local AI synthesis → deterministic verification at every boundary.</p>
+
+<h2>Watch it run</h2>
+<div class="h2sub">A model fills each layer; a gate decides whether the layer survives.</div>
+<div class="runner" id="runner">
+  <div class="runbar"><span class="t">my-AI-scene · live pipeline</span><span class="attempt">attempt <b id="att">1</b></span></div>
+  <div class="track" id="track">
+    <div class="stage" data-s="spec_load"><div class="sn">spec_load</div><div class="sg"></div></div><div class="arrow">→</div>
+    <div class="stage" data-s="narration"><div class="sn">narration</div><div class="sg">gate ●</div></div><div class="arrow">→</div>
+    <div class="stage" data-s="footage"><div class="sn">footage</div><div class="sg">gate ●</div></div><div class="arrow">→</div>
+    <div class="stage" data-s="music"><div class="sn">music</div><div class="sg">gate ○</div></div><div class="arrow">→</div>
+    <div class="stage" data-s="assembly"><div class="sn">assembly</div><div class="sg">gate ●</div></div><div class="arrow">→</div>
+    <div class="stage" data-s="episode"><div class="sn">episode.mp4</div><div class="sg"></div></div>
+  </div>
+  <div class="scorebar"><span>CLIP</span><div class="meter"><div class="fill" id="fill"></div></div><span class="scoreval" id="sv">— /100 · need ≥ 80</span></div>
+  <div class="console" id="console"></div>
+  <div class="caption">Per beat, per stage. <strong>Blocking ●</strong>: Whisper checks narration against the
+  script; CLIP scores the still against the footage prompt; ffprobe verifies the MP4. <strong>Non-blocking ○</strong>:
+  a music bed that fails its gate is dropped — the episode continues without it.</div>
 </div>
 
-<h2>The boundaries it verifies</h2>
-<div class="h2sub">A model proposes each layer; a gate scores it.</div>
-<p>Every stage has a deterministic check — the gate is <em>never</em> an LLM. Narration is transcribed and
-matched against the script; visuals are scored for relevance; music is a non-blocking bed; the final cut is
-assembled only from what passed. The model fills the frame; Python decides whether the frame survives.</p>
-
-<h2>Where it stands</h2>
-<div class="panel stat">
-  <div><span class="done">✓</span> &nbsp;Phase 0–1 — schema + verifiers (offline, scripted fakes)</div>
-  <div><span class="done">✓</span> &nbsp;Phase 2 — narration (Kokoro voice + Whisper gate): real VO rendered, gates green</div>
-  <div><span class="done">✓</span> &nbsp;Phase 6 — FastAPI + NDJSON web UI, live at <code>localhost:8004</code></div>
-  <div><span class="next">→</span> &nbsp;Phase 3 visuals (FLUX stills + Ken Burns + CLIP gate) · Phase 4 music · Phase 5 grade &amp; assemble → first MP4</div>
-  <div class="muted" style="margin-top:10px">local HuggingFace models · pure-Python gates · nothing leaves the machine</div>
+<h2>The three moves</h2>
+<div class="h2sub">Explain · Synthesize · Verify — at every boundary.</div>
+<div class="moves">
+  <div class="move e"><div class="num">01 · Explain</div><p>The <b>ProductionSpec</b> — every beat, narration line, footage prompt, and grade — is authored before synthesis. The schema is the contract the whole cut is judged against.</p></div>
+  <div class="move s"><div class="num">02 · Synthesize</div><p>Local HuggingFace models fill it in — <b>Kokoro</b> narration, <b>SDXL/FLUX</b> stills, <b>MusicGen</b> beds — beat by beat. The models are components, not the system.</p></div>
+  <div class="move v"><div class="num">03 · Verify</div><p>Whisper transcribes narration and compares it to the script; CLIP scores each still against its prompt; ffprobe verifies the final file. <b>Blocking gates protect the cut; music is non-blocking.</b></p></div>
 </div>
+
+<h2>Best at — and the honest limit</h2>
+<div class="h2sub">A watchable cut, assembled from what passed.</div>
+<p>my-AI-scene reliably produces a narrated, illustrated short where every kept frame cleared a gate — the
+worst case is a slightly simpler video, never a corrupt one.</p>
+<div class="callout"><strong>What it can't do:</strong> the gates verify that narration matches the script and
+a still matches its prompt — not that the film is <em>beautiful</em>. It guarantees conformance, and is honest
+that taste is a human call downstream.</div>
 
 <footer>
   my-AI-scene — a MoreSalamander · Productions engine. &nbsp;|&nbsp;
   <a href="https://moresalamander.github.io">The studio ↗</a> &nbsp;·&nbsp;
+  <a href="https://moresalamander.github.io/projects.html">All projects ↗</a> &nbsp;·&nbsp;
   <a href="https://github.com/MoreSalamander/myAIscene">GitHub ↗</a>
   <br>Human constraints in, a verified cut out.
 </footer>
 </div>
+
+<script>
+(function(){
+  const stages=[...document.querySelectorAll('.stage')], byId=id=>stages.find(s=>s.dataset.s===id);
+  const con=document.getElementById('console'),fill=document.getElementById('fill'),sv=document.getElementById('sv'),att=document.getElementById('att');
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  const reduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const F=reduced?0.12:1;
+  function clear(){stages.forEach(s=>s.classList.remove('active','pass','fail','drop'));}
+  function log(t,c){const l=document.createElement('div');l.className='ln';l.innerHTML='<span class="ev">'+t+'</span>';if(c)l.querySelector('.ev').className=c;con.appendChild(l);while(con.children.length>7)con.removeChild(con.firstChild);}
+  function score(v,ok){fill.style.width=Math.min(v,100)+'%';fill.style.background=ok?'var(--ok)':'var(--red)';sv.innerHTML='<b style="color:'+(ok?'var(--ok)':'var(--red)')+'">'+v+'</b> /100 · need ≥ 80';}
+  async function run(id,note){clear();byId(id).classList.add('active');log('<span class="k">step_start</span> '+id);await sleep(560*F);if(note)log('<span class="k">'+note+'</span>');log('<span class="k">step_complete</span> '+id);await sleep(340*F);}
+  async function gate(id,ok,note){clear();const el=byId(id);el.classList.add('active');log('<span class="k">gate_check</span> '+id);await sleep(640*F);el.classList.remove('active');el.classList.add(ok?'pass':'fail');el.querySelector('.sg').textContent=ok?'pass ✓':'fail ✕';log((ok?'gate_pass ':'gate_fail ')+id+(note?' · '+note:''),ok?'pass':'fail');await sleep(740*F);}
+  async function drop(id,note){clear();const el=byId(id);el.classList.add('drop');el.querySelector('.sg').textContent='dropped ○';log('gate_fail '+id+' · '+note+' → continue','fail');await sleep(740*F);}
+  function reset(n){con.innerHTML='';clear();stages.forEach(s=>{const g=s.querySelector('.sg');const d=s.dataset.s;g.textContent=(d==='narration'||d==='footage'||d==='assembly')?'gate ●':(d==='music'?'gate ○':'');});att.textContent=n;sv.innerHTML='— /100 · need ≥ 80';fill.style.width='0';}
+  async function loop(){while(true){
+    reset(1);await sleep(500*F);
+    await run('spec_load','loading ProductionSpec');
+    await gate('narration',true,'Whisper match 0.96');
+    score(71,false);await gate('footage',false,'CLIP 0.71 < 0.80');
+    log('retry ↺ re-render shot','fail');await sleep(1100*F);
+    reset(2);await sleep(380*F);
+    await run('footage','SDXL re-render');score(88,true);await gate('footage',true,'CLIP 0.88');
+    await drop('music','bed unavailable');
+    await gate('assembly',true,'ffprobe ok');
+    clear();byId('episode').classList.add('active','pass');byId('episode').querySelector('.sg').textContent='✓ rendered';
+    log('<span class="done">done</span> episode.mp4');await sleep(3200*F);
+  }}
+  loop();
+})();
+</script>
 </body>
 </html>
